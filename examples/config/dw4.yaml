@@ -40,11 +40,11 @@ training:
 
 
 logger:
-#  list_logger: null
-#  pandas_logger:
-#    save_period: 1000 # how often to save the pandas dataframe as a csv
-  wandb:
-    name: dw4_fm
-    project: fab
-    entity: flow-ais-bootstrap
-    tags: [dw4,flow_matching,final2,final3]
+ list_logger: null
+ pandas_logger:
+   save_period: 1000 # how often to save the pandas dataframe as a csv
+  # wandb:
+  #   name: dw4_fm
+  #   project: fab
+  #   entity: flow-ais-bootstrap
+  #   tags: [dw4,flow_matching,final2,final3]
