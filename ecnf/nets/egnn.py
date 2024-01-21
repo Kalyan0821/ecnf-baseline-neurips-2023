@@ -110,7 +110,7 @@ class EGCL(nn.Module):
         if self.residual_h:
             features_out = features_out + node_features
         if self.residual_x:
-            vectors_out = node_positions + vectors_out
+            vectors_out = vectors_out + node_positions 
         return vectors_out, features_out
 
 

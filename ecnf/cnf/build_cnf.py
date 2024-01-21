@@ -21,7 +21,7 @@ def build_cnf(
         n_invariant_feat_hidden: int,
         time_embedding_dim: int,
         n_features: int,
-        model_name="egnn"
+        model_name: str
 ):
 
     scale_bijector = distrax.ScalarAffine(

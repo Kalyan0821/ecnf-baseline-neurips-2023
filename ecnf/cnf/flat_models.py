@@ -66,7 +66,6 @@ class FlatEGNN(nn.Module):
                       )  # (B, n_nodes, dim)
         
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
-
         return flat_vectors  # (B, n_nodes*dim)
     
 
@@ -79,6 +78,38 @@ class FlatMACE(nn.Module):
                  node_features: chex.Array  # (B, n_nodes*n_features)
                  ) -> chex.Array:
 
-        raise NotImplementedError
+        (positions, node_features, time_embedding) = reshape_and_embed(positions, node_features, time,
+                                                                       self.n_nodes, self.dim, self.n_features, self.n_invariant_feat_hidden, self.time_embedding_dim)
 
+        # [l=0,p=e] (time), [l=1,p=o] (position)
+        #  1x0e,             1x1o
+        
+        raise NotImplementedError
+        
+        net = EGNN(n_blocks=self.n_blocks_egnn,
+                   mlp_units=self.mlp_units,
+                   n_invariant_feat_hidden=self.n_invariant_feat_hidden)
+
+        vectors = net(positions,      # (B, n_nodes, dim) 
+                      node_features,  # (B, n_nodes, n_invariant_feat_hidden) 
+                      time_embedding  # (B, time_embedding_dim)
+                      )  # (B, n_nodes, dim)
+        
+        flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
