@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, List
 
 import ase.data
 import e3nn_jax as e3nn
@@ -10,7 +10,10 @@ import jax.numpy as jnp
 import jraph
 import numpy as np
 
-from mace_jax import data, modules, tools
+import ecnf.nets.mace_modules as modules
+import ecnf.nets.mace_tools as tools
+import ecnf.nets.mace_data as data
+
 
 gin.register(jax.nn.silu)
 gin.register(jax.nn.relu)
@@ -29,7 +32,7 @@ def constant_scaling(graphs, atomic_energies, *, mean=0.0, std=1.0):
 
 
 @gin.configurable
-def bessel_basis(length, max_length, number: int):
+def bessel_basis(length, max_length, number: int = 8):
     return e3nn.bessel(length, number, max_length)
 
 
@@ -81,23 +84,24 @@ class LinearMassEmbedding(hk.Module):
 @gin.configurable
 def model(
     *,
+    output_irreps: e3nn.Irreps = None,  # "1o", or "0e + 1o"
+    dim: int = 3,  # 2 or 3
     r_max: float,
-    atomic_energies_dict: Dict[int, float] = None,
     train_graphs: List[jraph.GraphsTuple] = None,
-    initialize_seed: Optional[int] = None,
-    scaling: Callable = None,
-    atomic_energies: Union[str, np.ndarray, Dict[int, float]] = None,
+    num_interactions=2,
+    num_species: int = None,
+
     avg_num_neighbors: float = "average",
     avg_r_min: float = None,
-    num_species: int = None,
-    num_interactions=3,
     path_normalization="path",
     gradient_normalization="path",
-    learnable_atomic_energies=False,
     radial_basis: Callable[[jnp.ndarray], jnp.ndarray] = bessel_basis,
     radial_envelope: Callable[[jnp.ndarray], jnp.ndarray] = soft_envelope,
     **kwargs,
 ):
+    assert output_irreps in ["1o", "0e + 1o"]
+    assert dim in [2, 3]
+    
     if train_graphs is None:
         z_table = None
     else:
@@ -122,48 +126,6 @@ def model(
     else:
         logging.info(f"Use the average min neighbor distance: {avg_r_min:.3f}")
 
-    if atomic_energies is None:
-        if atomic_energies_dict is None or len(atomic_energies_dict) == 0:
-            atomic_energies = "average"
-        else:
-            atomic_energies = "isolated_atom"
-
-    if atomic_energies == "average":
-        atomic_energies_dict = data.compute_average_E0s(train_graphs, z_table)
-        logging.info(
-            f"Computed average Atomic Energies using least squares: {atomic_energies_dict}"
-        )
-        atomic_energies = np.array(
-            [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-        )
-    elif atomic_energies == "isolated_atom":
-        logging.info(
-            f"Using atomic energies from isolated atoms in the dataset: {atomic_energies_dict}"
-        )
-        atomic_energies = np.array(
-            [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-        )
-    elif atomic_energies == "zero":
-        logging.info("Not using atomic energies")
-        atomic_energies = np.zeros(num_species)
-    elif isinstance(atomic_energies, np.ndarray):
-        logging.info(
-            f"Use Atomic Energies that are provided: {atomic_energies.tolist()}"
-        )
-        if atomic_energies.shape != (num_species,):
-            logging.error(
-                f"atomic_energies.shape={atomic_energies.shape} != (num_species={num_species},)"
-            )
-            raise ValueError
-    elif isinstance(atomic_energies, dict):
-        atomic_energies_dict = atomic_energies
-        logging.info(f"Use Atomic Energies that are provided: {atomic_energies_dict}")
-        atomic_energies = np.array(
-            [atomic_energies_dict.get(z, 0.0) for z in range(num_species)]
-        )
-    else:
-        raise ValueError(f"atomic_energies={atomic_energies} is not supported")
-
     # check that num_species is consistent with the dataset
     if z_table is None:
         if train_graphs is not None:
@@ -177,14 +139,6 @@ def model(
             raise ValueError(
                 f"max(z_table.zs)={max(z_table.zs)} >= num_species={num_species}"
             )
-
-    if scaling is None:
-        mean, std = 0.0, 1.0
-    else:
-        mean, std = scaling(train_graphs, atomic_energies)
-        logging.info(
-            f"Scaling with {scaling.__qualname__}: mean={mean:.2f}, std={std:.2f}"
-        )
 
     kwargs.update(
         dict(
@@ -210,7 +164,7 @@ def model(
         e3nn.config("path_normalization", path_normalization)
         e3nn.config("gradient_normalization", gradient_normalization)
 
-        mace = modules.MACE(output_irreps="0e", **kwargs)
+        mace = modules.MACE(output_irreps=output_irreps, **kwargs)
 
         if hk.running_init():
             logging.info(
@@ -222,33 +176,13 @@ def model(
 
         contributions = mace(
             vectors, node_z, senders, receivers
-        )  # [n_nodes, num_interactions, 0e]
-        contributions = contributions.array[:, :, 0]  # [n_nodes, num_interactions]
-        node_energies = jnp.sum(contributions, axis=1)  # [n_nodes, ]
+        )  # [n_nodes, num_interactions, output_irreps.dim]
+        node_contributions = jnp.sum(contributions.array, axis=1)  # [n_nodes, output_irreps.dim]
+        assert node_contributions.shape == (len(node_z), output_irreps.dim)
 
-        node_energies = mean + std * node_energies
+        # node_energies = node_contributions[:, 0]
+        node_outs = node_contributions[:, -dim:]  # [n_nodes, dim]
+        return node_outs
 
-        if learnable_atomic_energies:
-            atomic_energies_ = hk.get_parameter(
-                "atomic_energies",
-                shape=(num_species,),
-                init=hk.initializers.Constant(atomic_energies),
-            )
-        else:
-            atomic_energies_ = jnp.asarray(atomic_energies)
-        node_energies += atomic_energies_[node_z]  # [n_nodes, ]
 
-        return node_energies
-
-    if initialize_seed is not None:
-        params = jax.jit(model_.init)(
-            jax.random.PRNGKey(initialize_seed),
-            jnp.zeros((1, 3)),
-            jnp.array([16]),
-            jnp.array([0]),
-            jnp.array([0]),
-        )
-    else:
-        params = None
-
-    return model_.apply, params, num_interactions
+    return model_

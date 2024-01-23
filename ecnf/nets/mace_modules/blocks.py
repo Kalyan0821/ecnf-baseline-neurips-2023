@@ -41,25 +41,25 @@ class LinearReadoutBlock(hk.Module):
 class NonLinearReadoutBlock(hk.Module):
     def __init__(
         self,
-        hidden_irreps: e3nn.Irreps,
+        readout_mlp_irreps: e3nn.Irreps,
         output_irreps: e3nn.Irreps,
         *,
         activation: Optional[Callable] = None,
         gate: Optional[Callable] = None,
     ):
         super().__init__()
-        self.hidden_irreps = hidden_irreps
+        self.readout_mlp_irreps = readout_mlp_irreps
         self.output_irreps = output_irreps
         self.activation = activation
         self.gate = gate
 
     def __call__(self, x: e3nn.IrrepsArray) -> e3nn.IrrepsArray:
         # x = [n_nodes, irreps]
-        num_vectors = self.hidden_irreps.filter(
+        num_vectors = self.readout_mlp_irreps.filter(
             drop=["0e", "0o"]
         ).num_irreps  # Multiplicity of (l > 0) irreps
         x = e3nn.haiku.Linear(
-            (self.hidden_irreps + e3nn.Irreps(f"{num_vectors}x0e")).simplify()
+            (self.readout_mlp_irreps + e3nn.Irreps(f"{num_vectors}x0e")).simplify()
         )(x)
         x = e3nn.gate(x, even_act=self.activation, even_gate_act=self.gate)
         return e3nn.haiku.Linear(self.output_irreps)(x)  # [n_nodes, output_irreps]
