@@ -30,12 +30,14 @@ class MACE(hk.Module):
         self,
         *,
         output_irreps: e3nn.Irreps,  # Irreps of the output, default 1x0e
+        readout_mlp_irreps: e3nn.Irreps,  # Hidden irreps of the MLP in last readout, default 16x0e
+        hidden_irreps: e3nn.Irreps,  # 256x0e or 128x0e + 128x1o
         r_max: float,
         num_interactions: int,  # Number of interactions (layers), default 2
-        hidden_irreps: e3nn.Irreps,  # 256x0e or 128x0e + 128x1o
-        readout_mlp_irreps: e3nn.Irreps,  # Hidden irreps of the MLP in last readout, default 16x0e
-        avg_num_neighbors: float,
+        epsilon: Optional[float] = None,
         num_species: int,
+
+        avg_num_neighbors: float,
         num_features: int = None,  # Number of features per node, default gcd of hidden_irreps multiplicities
         avg_r_min: float = None,
         radial_basis: Callable[[jnp.ndarray], jnp.ndarray],
@@ -43,7 +45,6 @@ class MACE(hk.Module):
         # Number of zero derivatives at small and large distances, default 4 and 2
         # If both are None, it uses a smooth C^inf envelope function
         max_ell: int = 3,  # Max spherical harmonic degree, default 3
-        epsilon: Optional[float] = None,
         correlation: int = 3,  # Correlation order at each layer (~ node_features^correlation), default 3
         gate: Callable = jax.nn.silu,  # activation function
         soft_normalization: Optional[float] = None,
@@ -105,11 +106,12 @@ class MACE(hk.Module):
 
     def __call__(
         self,
-        vectors: e3nn.IrrepsArray,  # [n_edges, 3]
-        node_specie: jnp.ndarray,  # [n_nodes] int between 0 and num_species-1
-        senders: jnp.ndarray,  # [n_edges]
-        receivers: jnp.ndarray,  # [n_edges]
-        node_mask: Optional[jnp.ndarray] = None,  # [n_nodes] only used for profiling
+        vectors: e3nn.IrrepsArray,  # (n_edges, 3)
+        node_specie: jnp.ndarray,  # (n_nodes,) int between 0 and num_species-1
+        senders: jnp.ndarray,  # (n_edges,)
+        receivers: jnp.ndarray,  # (n_edges,)
+        time_embedding: jnp.ndarray,  # (time_embedding_dim,)
+        node_mask: Optional[jnp.ndarray] = None,  # (n_nodes,) only used for profiling
     ) -> e3nn.IrrepsArray:
         assert vectors.ndim == 2 and vectors.shape[1] == 3
         assert node_specie.ndim == 1
@@ -122,11 +124,17 @@ class MACE(hk.Module):
         # Embeddings
         node_feats = self.node_embedding(node_specie).astype(
             vectors.dtype
-        )  # [n_nodes, feature * irreps]
+        )  # (n_nodes, feature * irreps)
         node_feats = profile("embedding: node_feats", node_feats, node_mask[:, None])
 
         if not (hasattr(vectors, "irreps") and hasattr(vectors, "array")):
             vectors = e3nn.IrrepsArray("1o", vectors)
+
+        # Time embedding: treat the vactor as a global list of scalars
+        if not (hasattr(time_embedding, "irreps") and hasattr(vectors, "array")):
+            time_embedding_dim = time_embedding.shape[0]
+            time_embedding_irreps = e3nn.Irreps("0e") * time_embedding_dim
+            time_embedding = e3nn.IrrepsArray(time_embedding_irreps, time_embedding)  # (time_embedding_dim,)
 
         radial_embedding = self.radial_embedding(safe_norm(vectors.array, axis=-1))
 
@@ -138,10 +146,14 @@ class MACE(hk.Module):
 
             hidden_irreps = (
                 self.hidden_irreps
-                if not last
-                else self.hidden_irreps.filter(self.output_irreps)
+                # if not last
+                # else self.hidden_irreps.filter(self.output_irreps)
             )
 
+            # concat node_feats & time_embedding, then project back to same irreps 
+            node_feats_concat = e3nn.concatenate([node_feats, time_embedding], axis=0)
+            node_feats = e3nn.haiku.Linear(node_feats.irreps, name="concat_project")(node_feats_concat)
+            
             node_outputs, node_feats = MACELayer(
                 first=first,
                 last=last,
@@ -237,7 +249,7 @@ class MACELayer(hk.Module):
         node_feats = profile(f"{self.name}: input", node_feats, node_mask[:, None])
 
         sc = None
-        if not self.first or self.skip_connection_first_layer:
+        if not self.first or self.skip_connection_first_layer:  # skip_connection_first_layer is False by default
             sc = e3nn.haiku.Linear(
                 self.num_features * self.hidden_irreps,
                 num_indexed_weights=self.num_species,

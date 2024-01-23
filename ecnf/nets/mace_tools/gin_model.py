@@ -84,13 +84,13 @@ class LinearMassEmbedding(hk.Module):
 @gin.configurable
 def model(
     *,
-    output_irreps: e3nn.Irreps = None,  # "1o", or "0e + 1o"
     dim: int = 3,  # 2 or 3
+    output_irreps: e3nn.Irreps = None,  # "1o", or "0e + 1o"
     r_max: float,
+    num_interactions: int = 2,
     train_graphs: List[jraph.GraphsTuple] = None,
-    num_interactions=2,
     num_species: int = None,
-
+    
     avg_num_neighbors: float = "average",
     avg_r_min: float = None,
     path_normalization="path",
@@ -143,10 +143,10 @@ def model(
     kwargs.update(
         dict(
             r_max=r_max,
-            avg_num_neighbors=avg_num_neighbors,
             num_interactions=num_interactions,
-            avg_r_min=avg_r_min,
             num_species=num_species,
+            avg_num_neighbors=avg_num_neighbors,
+            avg_r_min=avg_r_min,
             radial_basis=radial_basis,
             radial_envelope=radial_envelope,
         )
@@ -156,10 +156,11 @@ def model(
     @hk.without_apply_rng
     @hk.transform
     def model_(
-        vectors: jnp.ndarray,  # [n_edges, 3]
-        node_z: jnp.ndarray,  # [n_nodes]
-        senders: jnp.ndarray,  # [n_edges]
-        receivers: jnp.ndarray,  # [n_edges]
+        edge_vectors: jnp.ndarray,  # (n_edges, 3)
+        node_z: jnp.ndarray,  # (n_nodes,)
+        senders: jnp.ndarray,  # (n_edges,)
+        receivers: jnp.ndarray,  # (n_edges,)
+        time_embedding: jnp.ndarray,  # (time_embedding_dim,)
     ) -> jnp.ndarray:
         e3nn.config("path_normalization", path_normalization)
         e3nn.config("gradient_normalization", gradient_normalization)
@@ -175,9 +176,12 @@ def model(
             )
 
         contributions = mace(
-            vectors, node_z, senders, receivers
+            edge_vectors, node_z, senders, receivers, time_embedding
         )  # [n_nodes, num_interactions, output_irreps.dim]
-        node_contributions = jnp.sum(contributions.array, axis=1)  # [n_nodes, output_irreps.dim]
+        
+        # node_contributions = jnp.sum(contributions.array, axis=1)  # [n_nodes, output_irreps.dim]  ---> sum over all interactions
+        node_contributions = contributions.array[:, -1, :]  # [n_nodes, output_irreps.dim]  ---> just the last interaction
+
         assert node_contributions.shape == (len(node_z), output_irreps.dim)
 
         # node_energies = node_contributions[:, 0]

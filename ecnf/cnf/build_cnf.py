@@ -50,9 +50,24 @@ def build_cnf(
                        n_invariant_feat_hidden=n_invariant_feat_hidden,
                        time_embedding_dim=time_embedding_dim,
                        n_blocks_egnn=n_blocks_egnn,
-                       mlp_units=mlp_units)
+                       mlp_units=mlp_units
+        )
+        
     elif model_name == "mace":
-        net = FlatMACE()
+        net = FlatMACE(n_nodes=n_frames,
+                       dim=dim,
+                       n_features=n_features,
+                       time_embedding_dim=time_embedding_dim,
+                       output_irreps="0e + 1o",
+                       readout_mlp_irreps="16x0e + 16x1o",
+                       hidden_irreps="256x0e + 256x1o",
+                       r_max=5.0,               # Angstroms ?
+                       num_interactions=2,
+                       epsilon=0.4,
+                       train_graphs=None,       # TODO: what to provide here ????????????????????????
+                       num_species=11           # TODO: what to provide here ????????????????????????
+        )
+
     else:
         raise NotImplementedError
 

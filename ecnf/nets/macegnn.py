@@ -1,5 +1,5 @@
-from typing import Callable, Sequence, Tuple, Optional
-
+from typing import Callable, Sequence, Tuple, List
+import jraph
 
 import jax.numpy as jnp
 import jax
@@ -10,7 +10,7 @@ from flax import linen as nn
 from ecnf.utils.graph import get_senders_and_receivers_fully_connected
 from ecnf.utils.numerical import safe_norm
 from ecnf.nets.mlp import StableMLP, MLP
-
+from ecnf.nets.mace_tools.gin_model import model as mace_model
 
 
 class EGCL(nn.Module):
@@ -115,23 +115,22 @@ class EGCL(nn.Module):
         return vectors_out, features_out
 
 
-class EGNN(nn.Module):
-    """Configuration of EGNN."""
-    n_blocks: int  # number of layers
-    mlp_units: Sequence[int]
-    n_invariant_feat_hidden: int
-    name: Optional[str] = None
-    activation_fn: Callable = jax.nn.silu
-    stable_mlp: bool = False
-    residual_h: bool = True
-    residual_x: bool = True
-    normalization_constant: float = 1.0
-    variance_scaling_init: float = 0.001
+class MACEGNN(nn.Module):
+    """Configuration of MACEGNN."""
+    dim: int
+    output_irreps: e3nn.Irreps
+    readout_mlp_irreps: e3nn.Irreps
+    hidden_irreps: e3nn.Irreps
+    r_max: float
+    num_interactions: int
+    epsilon: float
+    train_graphs: List[jraph.GraphsTuple]
+    num_species: int
 
     @nn.compact
     def __call__(self,
-        positions: chex.Array,        # (B, n_nodes, dim)
-        node_features: chex.Array,    # (B, n_nodes, n_invariant_feat_hidden) 
+        positions: chex.Array,        # (B, n_nodes, dim) 
+        node_features: chex.Array,    # (B, n_nodes)
         global_features: chex.Array,  # (B, time_embedding_dim)
     ) -> chex.Array:
         assert positions.ndim in (2, 3)
@@ -141,13 +140,14 @@ class EGNN(nn.Module):
         else:
             return self.call_single(positions, node_features, global_features)
 
+
     def call_single(self,
         positions: chex.Array,        # (n_nodes, dim)
-        node_features: chex.Array,    # (n_nodes, n_invariant_feat_hidden)
+        node_features: chex.Array,    # (n_nodes,)
         global_features: chex.Array,  # (time_embedding_dim,)
     ) -> Tuple[chex.Array, chex.Array]:
         chex.assert_rank(positions, 2)
-        chex.assert_rank(node_features, 2)
+        chex.assert_rank(node_features, 1)
         chex.assert_rank(global_features, 1)
         n_nodes, dim = positions.shape
         chex.assert_axis_dimension(node_features, 0, n_nodes)
@@ -157,7 +157,19 @@ class EGNN(nn.Module):
         # Setup torso input.
         vectors = positions - positions.mean(axis=0, keepdims=True)  # (n_nodes, dim)
         initial_vectors = vectors
-        h = node_features  # (n_nodes, n_invariant_feat_hidden)
+        h = node_features  # (n_nodes,)
+
+        vectors = mace_model(dim=self.dim,
+                             output_irreps=self.output_irreps,
+                             readout_mlp_irreps=self.readout_mlp_irreps,
+                             hidden_irreps=self.hidden_irreps,
+                             r_max=self.r_max,
+                             num_interactions=self.num_interactions,
+                             epsilon=self.epsilon,
+                             train_graphs=self.train_graphs,
+                             num_species=self.num_species)(edge_vectors, node_features, senders, receivers, global_features)
+
+
 
         # Loop through torso layers.
         for i in range(self.n_blocks):
@@ -189,3 +201,6 @@ class EGNN(nn.Module):
         vectors = vectors * self.param("final_scaling", nn.initializers.ones_init(), ())
 
         return vectors
+
+
+
