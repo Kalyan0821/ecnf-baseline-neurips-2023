@@ -4,7 +4,8 @@ from functools import partial
 
 import hydra
 from omegaconf import DictConfig
-
+import sys
+sys.path.append("./")
 from ecnf.utils.loop import run_training
 from ecnf.targets.data import load_qm9, FullGraphSample
 from ecnf.setup_training import setup_training

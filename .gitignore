@@ -2,3 +2,5 @@ model_checkpoints
 outputs
 plots
 __pycache__
+wandb
+qm9_download_data
