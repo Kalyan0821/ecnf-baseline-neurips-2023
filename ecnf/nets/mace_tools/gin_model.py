@@ -92,6 +92,7 @@ def model(
     num_species: int = None,
     n_nodes: int = None,
     avg_num_neighbors: float = "average",
+    output_mode: str = "sum",  # "sum" or "last
     
     avg_r_min: float = None,
     path_normalization="path",
@@ -156,7 +157,7 @@ def model(
             radial_envelope=radial_envelope,
         )
     )
-    logging.info(f"Create MACE with parameters {kwargs}")
+    # logging.info(f"Create MACE with parameters {kwargs}")
 
     @hk.without_apply_rng
     @hk.transform
@@ -169,6 +170,7 @@ def model(
     ) -> jnp.ndarray:
         e3nn.config("path_normalization", path_normalization)
         e3nn.config("gradient_normalization", gradient_normalization)
+        assert edge_vectors.shape[1] == dim
 
         mace = modules.MACE(output_irreps=output_irreps, **kwargs)
 
@@ -180,14 +182,24 @@ def model(
                 f"interaction_irreps={mace.interaction_irreps} ",
             )
 
+        if dim == 2:
+            n_edges = edge_vectors.shape[0]
+            edge_vectors = jnp.concatenate([jnp.zeros((n_edges, 1)),
+                                            edge_vectors], axis=1)
+            assert edge_vectors.shape == (n_edges, 3)
+
         contributions = mace(
             edge_vectors, node_z, senders, receivers, time_embedding
         )  # [n_nodes, num_interactions, output_irreps.dim]
         
-        # node_contributions = jnp.sum(contributions.array, axis=1)  # [n_nodes, output_irreps.dim]  ---> sum over all interactions
-        node_contributions = contributions.array[:, -1, :]  # [n_nodes, output_irreps.dim]  ---> just the last interaction
+        if output_mode == "sum":
+            node_contributions = jnp.sum(contributions.array, axis=1)  # [n_nodes, output_irreps.dim]  ---> sum over all interactions
+        elif output_mode == "last":
+            node_contributions = contributions.array[:, -1, :]  # [n_nodes, output_irreps.dim]  ---> just the last interaction
+        else:
+            raise NotImplementedError
 
-        assert node_contributions.shape == (len(node_z), output_irreps.dim)
+        assert node_contributions.shape == (len(node_z), e3nn.Irreps(output_irreps).dim)
 
         # node_energies = node_contributions[:, 0]
         node_outs = node_contributions[:, -dim:]  # [n_nodes, dim]

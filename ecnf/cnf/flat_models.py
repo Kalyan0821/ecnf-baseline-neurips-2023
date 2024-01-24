@@ -93,6 +93,7 @@ class FlatMACE(nn.Module):
     num_species: int
     graph_type: str
     avg_num_neighbors: float
+    output_mode: str
 
     @nn.compact
     def __call__(self,
@@ -120,7 +121,8 @@ class FlatMACE(nn.Module):
                       num_species=self.num_species,
                       n_nodes=self.n_nodes,
                       graph_type=self.graph_type,
-                      avg_num_neighbors=self.avg_num_neighbors)
+                      avg_num_neighbors=self.avg_num_neighbors,
+                      output_mode=self.output_mode)
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 

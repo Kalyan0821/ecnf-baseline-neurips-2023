@@ -113,7 +113,7 @@ class MACE(hk.Module):
         time_embedding: jnp.ndarray,  # (time_embedding_dim,)
         node_mask: Optional[jnp.ndarray] = None,  # (n_nodes,) only used for profiling
     ) -> e3nn.IrrepsArray:
-        assert vectors.ndim == 2 and vectors.shape[1] in [2, 3]
+        assert vectors.ndim == 2 and vectors.shape[1] == 3
         assert node_specie.ndim == 1
         assert senders.ndim == 1 and receivers.ndim == 1
         assert vectors.shape[0] == senders.shape[0] == receivers.shape[0]
@@ -130,11 +130,13 @@ class MACE(hk.Module):
         if not (hasattr(vectors, "irreps") and hasattr(vectors, "array")):
             vectors = e3nn.IrrepsArray("1o", vectors)
 
-        # Time embedding: treat the vactor as a global list of scalars
+        # Time embedding: treat the vector as a global list of scalars
         if not (hasattr(time_embedding, "irreps") and hasattr(vectors, "array")):
             time_embedding_dim = time_embedding.shape[0]
             time_embedding_irreps = e3nn.Irreps("0e") * time_embedding_dim
             time_embedding = e3nn.IrrepsArray(time_embedding_irreps, time_embedding)  # (time_embedding_dim,)
+        # repeat for each node
+        time_embedding = time_embedding.broadcast_to(shape=(node_feats.shape[0], time_embedding.shape[0]))
 
         radial_embedding = self.radial_embedding(safe_norm(vectors.array, axis=-1))
 
@@ -151,7 +153,7 @@ class MACE(hk.Module):
             )
 
             # concat node_feats & time_embedding, then project back to same irreps 
-            node_feats_concat = e3nn.concatenate([node_feats, time_embedding], axis=0)
+            node_feats_concat = e3nn.concatenate([node_feats, time_embedding], axis=1)
             node_feats = e3nn.haiku.Linear(node_feats.irreps, name="concat_project")(node_feats_concat)
             
             node_outputs, node_feats = MACELayer(

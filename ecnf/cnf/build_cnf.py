@@ -68,7 +68,8 @@ def build_cnf(
                        train_graphs=None,        # how to get this ?
                        num_species=num_species,  # TODO: what to provide here ?
                        graph_type="fc",          # "fc"/"nbh"/"mace" (TODO: implement "mace")
-                       avg_num_neighbors=None    # TODO: get train_graphs and set to "average"  
+                       avg_num_neighbors=None,   # TODO: get train_graphs and set to "average"  
+                       output_mode="sum"         # "sum"/"last"
         )
 
     else:
