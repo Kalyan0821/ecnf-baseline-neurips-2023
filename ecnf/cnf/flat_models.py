@@ -94,6 +94,7 @@ class FlatMACE(nn.Module):
     epsilon: float
     train_graphs: List[jraph.GraphsTuple]
     num_species: int
+    graph_type: str
 
     @nn.compact
     def __call__(self,
@@ -118,7 +119,8 @@ class FlatMACE(nn.Module):
                       num_interactions=self.num_interactions,
                       epsilon=self.epsilon,
                       train_graphs=self.train_graphs,
-                      num_species=self.num_species)
+                      num_species=self.num_species,
+                      graph_type=self.graph_type)
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 
