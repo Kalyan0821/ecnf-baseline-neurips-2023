@@ -90,8 +90,9 @@ def model(
     num_interactions: int = 2,
     train_graphs: List[jraph.GraphsTuple] = None,
     num_species: int = None,
-    
+    n_nodes: int = None,
     avg_num_neighbors: float = "average",
+    
     avg_r_min: float = None,
     path_normalization="path",
     gradient_normalization="path",
@@ -101,6 +102,7 @@ def model(
 ):
     assert output_irreps in ["1o", "0e + 1o"]
     assert dim in [2, 3]
+    assert isinstance(num_species, int) 
     
     if train_graphs is None:
         z_table = None
@@ -111,10 +113,13 @@ def model(
     logging.info(f"z_table= {z_table}")
 
     if avg_num_neighbors == "average":
+        assert train_graphs is not None
         avg_num_neighbors = tools.compute_avg_num_neighbors(train_graphs)
         logging.info(
             f"Compute the average number of neighbors: {avg_num_neighbors:.3f}"
         )
+    elif avg_num_neighbors is None:
+        avg_num_neighbors = n_nodes - 1
     else:
         logging.info(f"Use the average number of neighbors: {avg_num_neighbors:.3f}")
 
@@ -187,6 +192,5 @@ def model(
         # node_energies = node_contributions[:, 0]
         node_outs = node_contributions[:, -dim:]  # [n_nodes, dim]
         return node_outs
-
 
     return model_

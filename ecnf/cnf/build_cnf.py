@@ -21,7 +21,8 @@ def build_cnf(
         n_invariant_feat_hidden: int,
         time_embedding_dim: int,
         n_features: int,
-        model_name: str
+        model_name: str,
+        num_species: int
 ):
 
     scale_bijector = distrax.ScalarAffine(
@@ -61,12 +62,13 @@ def build_cnf(
                        output_irreps="0e + 1o",
                        readout_mlp_irreps="16x0e + 16x1o",
                        hidden_irreps="256x0e + 256x1o",
-                       r_max=5.0,               # Angstroms ?
+                       r_max=5.0,  # Angstroms ?
                        num_interactions=2,
                        epsilon=0.4,
-                       train_graphs=None,       # TODO: what to provide here ????????????????????????
-                       num_species=11,          # TODO: what to provide here ????????????????????????
-                       graph_type="fc"          # "fc"/"nbh"/"mace" (TODO: implement "mace")
+                       train_graphs=None,        # how to get this ?
+                       num_species=num_species,  # TODO: what to provide here ?
+                       graph_type="fc",          # "fc"/"nbh"/"mace" (TODO: implement "mace")
+                       avg_num_neighbors=None    # TODO: get train_graphs and set to "average"  
         )
 
     else:

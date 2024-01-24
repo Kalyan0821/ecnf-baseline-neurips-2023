@@ -14,6 +14,7 @@ from ecnf.nets.mace_tools.gin_model import model as mace_model
 from ecnf.nets.mace_tools.utils import get_edge_relative_vectors
 from ecnf.nets.mace_data.utils import graph_from_configuration, load_from_xyz
 from ecnf.nets.mace_data.neighborhood import get_neighborhood
+import haiku.experimental.flax as hkflax
 
 
 class MACEGNN(nn.Module):
@@ -27,7 +28,24 @@ class MACEGNN(nn.Module):
     epsilon: float
     train_graphs: List[jraph.GraphsTuple]
     num_species: int
+    n_nodes: int
     graph_type: str
+    avg_num_neighbors: float
+
+    def setup(self):
+        self.mace_model = mace_model(dim=self.dim,
+                                     output_irreps=self.output_irreps,
+                                     readout_mlp_irreps=self.readout_mlp_irreps,
+                                     hidden_irreps=self.hidden_irreps,
+                                     r_max=self.r_max,
+                                     num_interactions=self.num_interactions,
+                                     epsilon=self.epsilon,
+                                     train_graphs=self.train_graphs,
+                                     num_species=self.num_species,
+                                     n_nodes=self.n_nodes,
+                                     avg_num_neighbors=self.avg_num_neighbors)
+        
+        self.mace_model_flax = hkflax.Module(self.mace_model)
 
     @nn.compact
     def __call__(self,
@@ -51,11 +69,10 @@ class MACEGNN(nn.Module):
         chex.assert_rank(positions, 2)
         chex.assert_rank(node_features, 1)
         chex.assert_rank(global_features, 1)
-        n_nodes, dim = positions.shape
-        chex.assert_axis_dimension(node_features, 0, n_nodes)
+        chex.assert_axis_dimension(node_features, 0, self.n_nodes)
 
         if self.graph_type == "fc":
-            senders, receivers = get_senders_and_receivers_fully_connected(n_nodes)
+            senders, receivers = get_senders_and_receivers_fully_connected(self.n_nodes)
             edge_vectors = positions[receivers] - positions[senders]
 
         elif self.graph_type == "nbh":
@@ -78,17 +95,9 @@ class MACEGNN(nn.Module):
         else:
             raise NotImplementedError
 
-        vectors = mace_model(dim=self.dim,
-                             output_irreps=self.output_irreps,
-                             readout_mlp_irreps=self.readout_mlp_irreps,
-                             hidden_irreps=self.hidden_irreps,
-                             r_max=self.r_max,
-                             num_interactions=self.num_interactions,
-                             epsilon=self.epsilon,
-                             train_graphs=self.train_graphs,
-                             num_species=self.num_species)(edge_vectors, node_features, senders, receivers, global_features)
+        vectors = self.mace_model_flax(edge_vectors, node_features, senders, receivers, global_features)
 
-        chex.assert_shape(vectors, (n_nodes, dim))
+        chex.assert_shape(vectors, (self.n_nodes, self.dim))
 
         vectors = vectors - positions
 

@@ -36,8 +36,8 @@ class MACE(hk.Module):
         num_interactions: int,  # Number of interactions (layers), default 2
         epsilon: Optional[float] = None,
         num_species: int,
-
         avg_num_neighbors: float,
+
         num_features: int = None,  # Number of features per node, default gcd of hidden_irreps multiplicities
         avg_r_min: float = None,
         radial_basis: Callable[[jnp.ndarray], jnp.ndarray],
@@ -113,7 +113,7 @@ class MACE(hk.Module):
         time_embedding: jnp.ndarray,  # (time_embedding_dim,)
         node_mask: Optional[jnp.ndarray] = None,  # (n_nodes,) only used for profiling
     ) -> e3nn.IrrepsArray:
-        assert vectors.ndim == 2 and vectors.shape[1] == 3
+        assert vectors.ndim == 2 and vectors.shape[1] in [2, 3]
         assert node_specie.ndim == 1
         assert senders.ndim == 1 and receivers.ndim == 1
         assert vectors.shape[0] == senders.shape[0] == receivers.shape[0]

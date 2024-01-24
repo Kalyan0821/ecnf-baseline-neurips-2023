@@ -29,12 +29,12 @@ def reshape_and_embed(positions, node_features, time,
                       n_nodes, dim, n_features, n_invariant_feat_hidden, time_embedding_dim,
                       skip_node_features=False):
     chex.assert_rank(positions, 2)
-    chex.assert_rank(node_features, 2)
     chex.assert_rank(time, 1)
 
     positions = jnp.reshape(positions, (positions.shape[0], n_nodes, dim))
 
     if not skip_node_features:
+        chex.assert_rank(node_features, 2)
         node_features = jnp.reshape(node_features, (node_features.shape[0], n_nodes, -1))  # (B, n_nodes, n_features)
         node_features = nn.Embed(num_embeddings=n_features, features=n_invariant_feat_hidden)(jnp.squeeze(node_features, axis=-1))
         
@@ -59,10 +59,7 @@ class FlatEGNN(nn.Module):
                  time: chex.Array,          # (B,)
                  node_features: chex.Array  # (B, n_nodes*n_features)
                  ) -> chex.Array:
-
-        print(self.n_nodes, self.n_features, node_features.shape)
-
-
+        
         # (B, n_nodes, dim), (B, n_nodes, n_invariant_feat_hidden), (B, time_embedding_dim)
         (positions, node_features, time_embedding) = reshape_and_embed(positions, node_features, time,
                                                                        self.n_nodes, self.dim, self.n_features, self.n_invariant_feat_hidden, self.time_embedding_dim)
@@ -95,6 +92,7 @@ class FlatMACE(nn.Module):
     train_graphs: List[jraph.GraphsTuple]
     num_species: int
     graph_type: str
+    avg_num_neighbors: float
 
     @nn.compact
     def __call__(self,
@@ -120,7 +118,9 @@ class FlatMACE(nn.Module):
                       epsilon=self.epsilon,
                       train_graphs=self.train_graphs,
                       num_species=self.num_species,
-                      graph_type=self.graph_type)
+                      n_nodes=self.n_nodes,
+                      graph_type=self.graph_type,
+                      avg_num_neighbors=self.avg_num_neighbors)
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 
