@@ -159,7 +159,7 @@ def model(
     )
     # logging.info(f"Create MACE with parameters {kwargs}")
 
-    @hk.without_apply_rng
+    # @hk.without_apply_rng
     @hk.transform
     def model_(
         edge_vectors: jnp.ndarray,  # (n_edges, 3)

@@ -31,6 +31,7 @@ class MACEGNN(nn.Module):
     n_nodes: int
     graph_type: str
     avg_num_neighbors: float
+    output_mode: str
 
     def setup(self):
         self.mace_model = mace_model(dim=self.dim,
@@ -43,9 +44,10 @@ class MACEGNN(nn.Module):
                                      train_graphs=self.train_graphs,
                                      num_species=self.num_species,
                                      n_nodes=self.n_nodes,
-                                     avg_num_neighbors=self.avg_num_neighbors)
+                                     avg_num_neighbors=self.avg_num_neighbors,
+                                     output_mode=self.output_mode)
         
-        self.mace_model_flax = hkflax.Module(self.mace_model)
+        self.mace_model = hkflax.Module(self.mace_model)  # convert to flax module
 
     @nn.compact
     def __call__(self,
@@ -95,7 +97,7 @@ class MACEGNN(nn.Module):
         else:
             raise NotImplementedError
 
-        vectors = self.mace_model_flax(edge_vectors, node_features, senders, receivers, global_features)
+        vectors = self.mace_model(edge_vectors, node_features, senders, receivers, global_features)
 
         chex.assert_shape(vectors, (self.n_nodes, self.dim))
 

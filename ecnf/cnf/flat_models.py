@@ -102,7 +102,6 @@ class FlatMACE(nn.Module):
                  node_features: chex.Array  # (B, n_nodes*n_features)
                  ) -> chex.Array:
 
-        assert self.n_features == 1
         assert node_features.shape[-1] == self.n_nodes
 
         # (B, n_nodes, dim), _, (B, time_embedding_dim)

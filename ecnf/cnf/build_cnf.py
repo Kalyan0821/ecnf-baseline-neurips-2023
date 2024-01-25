@@ -55,6 +55,8 @@ def build_cnf(
         )
         
     elif model_name == "mace":
+        assert n_features == 1
+        
         net = FlatMACE(n_nodes=n_frames,
                        dim=dim,
                        n_features=n_features,
