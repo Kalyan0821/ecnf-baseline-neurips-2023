@@ -6,8 +6,8 @@ flow:
   sigma_min: 0.01
   base_scale: 1.
   network:
-    # type: egnn
-    type: mace
+    # type: mace
+    type: egnn
     mlp_units: [128, 128, 128]
     n_blocks_egnn: 3
     n_invariant_feat_hidden: 64

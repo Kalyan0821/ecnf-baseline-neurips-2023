@@ -45,6 +45,7 @@ class TrainConfig(NamedTuple):
     init_state: InitStateFn
     update_state: UpdateStateFn
     eval_and_plot_fn: EvalAndPlotFn
+    model_name: str
     save: bool = True
     save_dir: str = "/tmp"
     resume: bool = False
@@ -65,10 +66,10 @@ def run_training(config: TrainConfig):
     if config.save:
         pathlib.Path(config.save_dir).mkdir(exist_ok=True)  # base saving directory
 
-        plots_dir = os.path.join(config.save_dir, f"plots")
+        plots_dir = os.path.join(config.save_dir, f"plots_{config.model_name}")
         pathlib.Path(plots_dir).mkdir(exist_ok=config.resume)
 
-        checkpoints_dir = os.path.join(config.save_dir, f"model_checkpoints")
+        checkpoints_dir = os.path.join(config.save_dir, f"model_checkpoints_{config.model_name}")
         pathlib.Path(checkpoints_dir).mkdir(exist_ok=config.resume)
     else:
         plots_dir = None
@@ -117,6 +118,7 @@ def run_training(config: TrainConfig):
 
     pbar = tqdm(range(start_iter, config.n_iteration))
 
+    print("\n\nStarting training loop ...")
     for iteration in pbar:
         state, info = config.update_state(state)
 

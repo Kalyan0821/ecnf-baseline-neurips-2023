@@ -46,10 +46,11 @@ class MACEGNN(nn.Module):
                                      n_nodes=self.n_nodes,
                                      avg_num_neighbors=self.avg_num_neighbors,
                                      output_mode=self.output_mode)
-        
         self.mace_model = hkflax.Module(self.mace_model)  # convert to flax module
 
-    @nn.compact
+        self.final_scaling = self.param("final_scaling", nn.initializers.ones_init(), ())
+
+
     def __call__(self,
         positions: chex.Array,        # (B, n_nodes, dim) 
         node_features: chex.Array,    # (B, n_nodes)
@@ -97,13 +98,16 @@ class MACEGNN(nn.Module):
         else:
             raise NotImplementedError
 
-        vectors = self.mace_model(edge_vectors, node_features, senders, receivers, global_features)
-
+        vectors = self.mace_model(edge_vectors=edge_vectors, 
+                                  node_z=node_features, 
+                                  senders=senders, 
+                                  receivers=receivers, 
+                                  time_embedding=global_features)
         chex.assert_shape(vectors, (self.n_nodes, self.dim))
 
         vectors = vectors - positions
 
-        vectors = vectors * self.param("final_scaling", nn.initializers.ones_init(), ())
+        vectors = vectors * self.final_scaling
 
         return vectors
 

@@ -1,6 +1,6 @@
-model_checkpoints
+model_checkpoints*
+plots*
 outputs
-plots
 __pycache__
 wandb
 qm9_download_data

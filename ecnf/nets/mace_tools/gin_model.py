@@ -111,7 +111,7 @@ def model(
         z_table = data.get_atomic_number_table_from_zs(
             z for graph in train_graphs for z in graph.nodes.species
         )
-    logging.info(f"z_table= {z_table}")
+    # logging.info(f"z_table= {z_table}")
 
     if avg_num_neighbors == "average":
         assert train_graphs is not None

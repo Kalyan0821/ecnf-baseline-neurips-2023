@@ -5,6 +5,7 @@ from functools import partial
 
 import jax.numpy as jnp
 import distrax
+import jax
 
 from ecnf.cnf.core import FlowMatchingCNF, optimal_transport_conditional_vf
 from ecnf.cnf.zero_com_base import FlatZeroCoMGaussian
@@ -53,10 +54,8 @@ def build_cnf(
                        n_blocks_egnn=n_blocks_egnn,
                        mlp_units=mlp_units
         )
-        
     elif model_name == "mace":
         assert n_features == 1
-        
         net = FlatMACE(n_nodes=n_frames,
                        dim=dim,
                        n_features=n_features,
@@ -73,9 +72,18 @@ def build_cnf(
                        avg_num_neighbors=None,   # TODO: get train_graphs and set to "average"  
                        output_mode="sum"         # "sum"/"last"
         )
-
     else:
         raise NotImplementedError
+    
+    print("--------------------------------------------")
+    print("Num. params:")
+    params = net.init(jax.random.PRNGKey(0), 
+                      jnp.zeros((1, n_frames*dim)), 
+                      jnp.zeros((1,)), 
+                      jnp.zeros((1, n_frames*n_features), dtype=int)
+            )
+    print(sum(x.size for x in jax.tree_leaves(params)))
+    print("--------------------------------------------")
 
     cnf = FlowMatchingCNF(init=net.init, apply=net.apply, get_x_t_and_conditional_u_t=get_cond_vector_field,
                           sample_base=base._sample_n, sample_and_log_prob_base=base.sample_and_log_prob,

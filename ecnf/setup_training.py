@@ -117,7 +117,6 @@ def setup_training(
 
     n_nodes, dim = train_data_.positions.shape[1:]
 
-
     cnf = build_cnf(dim=dim,
                     n_frames=n_nodes,
                     sigma_min=cfg.flow.sigma_min,
@@ -130,7 +129,6 @@ def setup_training(
                     model_name=cfg.flow.network.type,
                     num_species=cfg.flow.network.num_species
                     )
-
 
     def init_state(key: chex.PRNGKey) -> TrainingState:
         params = cnf.init(key, train_pos_flat[:2], jnp.zeros(2), train_features_flat[:2])
@@ -268,6 +266,7 @@ def setup_training(
         update_state=run_epoch,
         eval_and_plot_fn=eval_and_plot,
         save=cfg.training.save,
-        save_dir=save_path)
+        save_dir=save_path,
+        model_name=cfg.flow.network.type)
 
     return train_config
