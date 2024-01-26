@@ -1,4 +1,3 @@
-import logging
 from typing import Callable, List
 
 import ase.data
@@ -103,7 +102,6 @@ def model(
 ):
     assert output_irreps in ["1o", "0e + 1o"]
     assert dim in [2, 3]
-    assert isinstance(num_species, int) 
     
     if train_graphs is None:
         z_table = None
@@ -111,26 +109,16 @@ def model(
         z_table = data.get_atomic_number_table_from_zs(
             z for graph in train_graphs for z in graph.nodes.species
         )
-    # logging.info(f"z_table= {z_table}")
 
     if avg_num_neighbors == "average":
         assert train_graphs is not None
         avg_num_neighbors = tools.compute_avg_num_neighbors(train_graphs)
-        logging.info(
-            f"Compute the average number of neighbors: {avg_num_neighbors:.3f}"
-        )
+
     elif avg_num_neighbors is None:
         avg_num_neighbors = n_nodes - 1
-    else:
-        logging.info(f"Use the average number of neighbors: {avg_num_neighbors:.3f}")
 
     if avg_r_min == "average":
         avg_r_min = tools.compute_avg_min_neighbor_distance(train_graphs)
-        logging.info(f"Compute the average min neighbor distance: {avg_r_min:.3f}")
-    elif avg_r_min is None:
-        logging.info("Do not normalize the radial basis (avg_r_min=None)")
-    else:
-        logging.info(f"Use the average min neighbor distance: {avg_r_min:.3f}")
 
     # check that num_species is consistent with the dataset
     if z_table is None:
@@ -157,9 +145,8 @@ def model(
             radial_envelope=radial_envelope,
         )
     )
-    # logging.info(f"Create MACE with parameters {kwargs}")
 
-    # @hk.without_apply_rng
+    # @hk.without_apply_rng  # gives a "num. arguments" error
     @hk.transform
     def model_(
         edge_vectors: jnp.ndarray,  # (n_edges, 3)
@@ -173,14 +160,6 @@ def model(
         assert edge_vectors.shape[1] == dim
 
         mace = modules.MACE(output_irreps=output_irreps, **kwargs)
-
-        if hk.running_init():
-            logging.info(
-                "model: "
-                f"num_features={mace.num_features} "
-                f"hidden_irreps={mace.hidden_irreps} "
-                f"interaction_irreps={mace.interaction_irreps} ",
-            )
 
         if dim == 2:
             n_edges = edge_vectors.shape[0]

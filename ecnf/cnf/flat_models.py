@@ -103,7 +103,7 @@ class FlatMACE(nn.Module):
                  ) -> chex.Array:
 
         assert node_features.shape[-1] == self.n_nodes
-
+        
         # (B, n_nodes, dim), _, (B, time_embedding_dim)
         (positions, _, time_embedding) = reshape_and_embed(positions, None, time,
                                                            self.n_nodes, self.dim, None, None, self.time_embedding_dim,

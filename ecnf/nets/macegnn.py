@@ -79,8 +79,9 @@ class MACEGNN(nn.Module):
             edge_vectors = positions[receivers] - positions[senders]
 
         elif self.graph_type == "nbh":
-            senders, receivers, _ = get_neighborhood(positions=positions, cutoff=self.r_max)
-            edge_vectors = positions[receivers] - positions[senders]
+            # senders, receivers, _ = get_neighborhood(positions=positions, cutoff=self.r_max)
+            # edge_vectors = positions[receivers] - positions[senders]
+            raise NotImplementedError  # doesn't work with jax-traced positions
 
         elif self.graph_type == "mace":
             # _, train_config = load_from_xyz(file_or_path=path)[0]

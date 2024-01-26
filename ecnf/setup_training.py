@@ -127,9 +127,18 @@ def setup_training(
                     time_embedding_dim=cfg.flow.network.time_embedding_dim,
                     n_features=train_features_flat.max() + 1,
                     model_name=cfg.flow.network.type,
-                    num_species=cfg.flow.network.num_species
+                    # mace specific
+                    output_irreps=cfg.flow.network.mace.output_irreps,
+                    readout_mlp_irreps=cfg.flow.network.mace.readout_mlp_irreps,
+                    hidden_irreps=cfg.flow.network.mace.hidden_irreps,
+                    r_max=cfg.flow.network.mace.r_max,
+                    num_interactions=cfg.flow.network.mace.num_interactions,
+                    epsilon=cfg.flow.network.mace.epsilon,
+                    graph_type=cfg.flow.network.mace.graph_type,
+                    avg_num_neighbors=cfg.flow.network.mace.avg_num_neighbors,
+                    output_mode=cfg.flow.network.mace.output_mode
                     )
-
+    
     def init_state(key: chex.PRNGKey) -> TrainingState:
         params = cnf.init(key, train_pos_flat[:2], jnp.zeros(2), train_features_flat[:2])
         opt_state = optimizer.init(params=params)
@@ -267,6 +276,7 @@ def setup_training(
         eval_and_plot_fn=eval_and_plot,
         save=cfg.training.save,
         save_dir=save_path,
-        model_name=cfg.flow.network.type)
+        model_name=cfg.flow.network.type,
+        task=cfg.task)
 
     return train_config

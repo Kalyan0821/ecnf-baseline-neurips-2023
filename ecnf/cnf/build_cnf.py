@@ -23,7 +23,16 @@ def build_cnf(
         time_embedding_dim: int,
         n_features: int,
         model_name: str,
-        num_species: int
+        # mace specific
+        output_irreps: str,
+        readout_mlp_irreps: str,
+        hidden_irreps: str,
+        r_max: float,  
+        num_interactions: int,
+        epsilon: float,
+        graph_type: str,          
+        avg_num_neighbors: str,  
+        output_mode: str
 ):
 
     scale_bijector = distrax.ScalarAffine(
@@ -45,6 +54,7 @@ def build_cnf(
 
     get_cond_vector_field = partial(optimal_transport_conditional_vf, sigma_min=sigma_min)
 
+    assert n_features == 1
     if model_name == "egnn":
         net = FlatEGNN(n_nodes=n_frames,
                        dim=dim,
@@ -55,22 +65,21 @@ def build_cnf(
                        mlp_units=mlp_units
         )
     elif model_name == "mace":
-        assert n_features == 1
         net = FlatMACE(n_nodes=n_frames,
                        dim=dim,
                        n_features=n_features,
                        time_embedding_dim=time_embedding_dim,
-                       output_irreps="0e + 1o",
-                       readout_mlp_irreps="16x0e + 16x1o",
-                       hidden_irreps="256x0e + 256x1o",
-                       r_max=5.0,  # Angstroms ?
-                       num_interactions=2,
-                       epsilon=0.4,
-                       train_graphs=None,        # how to get this ?
-                       num_species=num_species,  # TODO: what to provide here ?
-                       graph_type="fc",          # "fc"/"nbh"/"mace" (TODO: implement "mace")
-                       avg_num_neighbors=None,   # TODO: get train_graphs and set to "average"  
-                       output_mode="sum"         # "sum"/"last"
+                       output_irreps=output_irreps,
+                       readout_mlp_irreps=readout_mlp_irreps,
+                       hidden_irreps=hidden_irreps,
+                       r_max=r_max,
+                       num_interactions=num_interactions,
+                       epsilon=epsilon,
+                       train_graphs=None,        # TODO: get this
+                       num_species=int(n_features),
+                       graph_type=graph_type,
+                       avg_num_neighbors=avg_num_neighbors,
+                       output_mode=output_mode
         )
     else:
         raise NotImplementedError
