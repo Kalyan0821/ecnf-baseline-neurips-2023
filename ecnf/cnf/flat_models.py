@@ -4,7 +4,8 @@ import jax.numpy as jnp
 from typing import Sequence, List
 import e3nn_jax as e3nn
 from ecnf.nets.egnn import EGNN
-from ecnf.nets.macegnn import MACEGNN
+from ecnf.nets.macegnn_adapted import MACEAdapted
+from ecnf.nets.mace_diffusion.macegnn import MACEDiffusionAdapted
 import jraph
 
 
@@ -109,19 +110,19 @@ class FlatMACE(nn.Module):
                                                            self.n_nodes, self.dim, None, None, self.time_embedding_dim,
                                                            skip_node_features=True)
         
-        net = MACEGNN(dim=self.dim,
-                      output_irreps=self.output_irreps,
-                      readout_mlp_irreps=self.readout_mlp_irreps,
-                      hidden_irreps=self.hidden_irreps,
-                      r_max=self.r_max,
-                      num_interactions=self.num_interactions,
-                      epsilon=self.epsilon,
-                      train_graphs=self.train_graphs,
-                      num_species=self.num_species,
-                      n_nodes=self.n_nodes,
-                      graph_type=self.graph_type,
-                      avg_num_neighbors=self.avg_num_neighbors,
-                      output_mode=self.output_mode)
+        net = MACEAdapted(dim=self.dim,
+                          output_irreps=self.output_irreps,
+                          readout_mlp_irreps=self.readout_mlp_irreps,
+                          hidden_irreps=self.hidden_irreps,
+                          r_max=self.r_max,
+                          num_interactions=self.num_interactions,
+                          epsilon=self.epsilon,
+                          train_graphs=self.train_graphs,
+                          num_species=self.num_species,
+                          n_nodes=self.n_nodes,
+                          graph_type=self.graph_type,
+                          avg_num_neighbors=self.avg_num_neighbors,
+                          output_mode=self.output_mode)
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 
@@ -132,7 +133,51 @@ class FlatMACE(nn.Module):
         return flat_vectors  # (B, n_nodes*dim)
 
 
+class FlatMACEDiffusion(nn.Module):
+    n_nodes: int
+    dim: int
+    n_features: int
+    time_embedding_dim: int
+    # mace specific
+    readout_mlp_irreps: e3nn.Irreps
+    hidden_irreps: e3nn.Irreps
+    r_max: float
+    num_interactions: int
+    num_species: int
+    graph_type: str
+    avg_num_neighbors: float
 
+    @nn.compact
+    def __call__(self,
+                 positions: chex.Array,     # (B, n_nodes*dim)
+                 time: chex.Array,          # (B,)
+                 node_features: chex.Array  # (B, n_nodes*n_features)
+                 ) -> chex.Array:
+
+        assert node_features.shape[-1] == self.n_nodes
+        
+        # (B, n_nodes, dim), _, (B, time_embedding_dim)
+        (positions, _, time_embedding) = reshape_and_embed(positions, None, time,
+                                                           self.n_nodes, self.dim, None, None, self.time_embedding_dim,
+                                                           skip_node_features=True)
+        
+        net = MACEDiffusionAdapted(dim=self.dim,
+                                   readout_mlp_irreps=self.readout_mlp_irreps,
+                                   hidden_irreps=self.hidden_irreps,
+                                   r_max=self.r_max,
+                                   num_interactions=self.num_interactions,
+                                   num_species=self.num_species,
+                                   n_nodes=self.n_nodes,
+                                   graph_type=self.graph_type,
+                                   avg_num_neighbors=self.avg_num_neighbors)
+                                
+        vectors = net(positions,      # (B, n_nodes, dim) 
+                      node_features,  # (B, n_nodes) 
+                      time_embedding  # (B, time_embedding_dim)
+                      )  # (B, n_nodes, dim)
+        
+        flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
+        return flat_vectors  # (B, n_nodes*dim)
 
 
 

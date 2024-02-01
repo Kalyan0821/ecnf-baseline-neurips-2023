@@ -1,24 +1,18 @@
-from typing import Callable, Sequence, Tuple, List
+from typing import Tuple, List
 import jraph
 
-import jax.numpy as jnp
 import jax
 import e3nn_jax as e3nn
 import chex
 from flax import linen as nn
 
-from ecnf.utils.graph import get_senders_and_receivers_fully_connected
-from ecnf.utils.numerical import safe_norm
-from ecnf.nets.mlp import StableMLP, MLP
+from ecnf.utils.graph import get_graph_inputs
 from ecnf.nets.mace_tools.gin_model import model as mace_model
-from ecnf.nets.mace_tools.utils import get_edge_relative_vectors
-from ecnf.nets.mace_data.utils import graph_from_configuration, load_from_xyz
-from ecnf.nets.mace_data.neighborhood import get_neighborhood
 import haiku.experimental.flax as hkflax
 
 
-class MACEGNN(nn.Module):
-    """Configuration of MACEGNN."""
+class MACEAdapted(nn.Module):
+    """This implementation just tries to modify the energy predictor (force-field) model appropriately."""
     dim: int
     output_irreps: e3nn.Irreps
     readout_mlp_irreps: e3nn.Irreps
@@ -52,9 +46,9 @@ class MACEGNN(nn.Module):
 
 
     def __call__(self,
-        positions: chex.Array,        # (B, n_nodes, dim) 
-        node_features: chex.Array,    # (B, n_nodes)
-        global_features: chex.Array,  # (B, time_embedding_dim)
+                 positions: chex.Array,        # (B, n_nodes, dim) 
+                 node_features: chex.Array,    # (B, n_nodes)
+                 global_features: chex.Array,  # (B, time_embedding_dim)
     ) -> chex.Array:
         assert positions.ndim in (2, 3)
         vmap = positions.ndim == 3
@@ -65,44 +59,21 @@ class MACEGNN(nn.Module):
 
 
     def call_single(self,
-        positions: chex.Array,        # (n_nodes, dim)
-        node_features: chex.Array,    # (n_nodes,)
-        global_features: chex.Array,  # (time_embedding_dim,)
+                    positions: chex.Array,        # (n_nodes, dim)
+                    node_features: chex.Array,    # (n_nodes,)
+                    global_features: chex.Array,  # (time_embedding_dim,)
     ) -> Tuple[chex.Array, chex.Array]:
         chex.assert_rank(positions, 2)
         chex.assert_rank(node_features, 1)
         chex.assert_rank(global_features, 1)
         chex.assert_axis_dimension(node_features, 0, self.n_nodes)
 
-        if self.graph_type == "fc":
-            senders, receivers = get_senders_and_receivers_fully_connected(self.n_nodes)
-            edge_vectors = positions[receivers] - positions[senders]
-
-        elif self.graph_type == "nbh":
-            # senders, receivers, _ = get_neighborhood(positions=positions, cutoff=self.r_max)
-            # edge_vectors = positions[receivers] - positions[senders]
-            raise NotImplementedError  # doesn't work with jax-traced positions
-
-        elif self.graph_type == "mace":
-            # _, train_config = load_from_xyz(file_or_path=path)[0]
-            # graph = graph_from_configuration(train_config, cutoff=self.r_max)
-            # senders = graph.senders
-            # receivers = graph.receivers
-            # edge_vectors = get_edge_relative_vectors(positions=positions,
-            #                                          senders=senders,
-            #                                          receivers=receivers,
-            #                                          shifts=graph.edges.shifts,
-            #                                          cell=graph.globals.cell,
-            #                                          n_edge=graph.n_edge)
-            raise NotImplementedError
-
-        else:
-            raise NotImplementedError
+        edge_vectors, senders, receivers = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max)
 
         vectors = self.mace_model(edge_vectors=edge_vectors, 
                                   node_z=node_features, 
                                   senders=senders, 
-                                  receivers=receivers, 
+                                  receivers=receivers,
                                   time_embedding=global_features)
         chex.assert_shape(vectors, (self.n_nodes, self.dim))
 

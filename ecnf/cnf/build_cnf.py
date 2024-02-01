@@ -9,7 +9,7 @@ import jax
 
 from ecnf.cnf.core import FlowMatchingCNF, optimal_transport_conditional_vf
 from ecnf.cnf.zero_com_base import FlatZeroCoMGaussian
-from ecnf.cnf.flat_models import FlatEGNN, FlatMACE
+from ecnf.cnf.flat_models import FlatEGNN, FlatMACE, FlatMACEDiffusion
 
 
 def build_cnf(
@@ -81,6 +81,8 @@ def build_cnf(
                        avg_num_neighbors=avg_num_neighbors,
                        output_mode=output_mode
         )
+    elif model_name == "mace_diffusion":
+        net = FlatMACEDiffusion(None)
     else:
         raise NotImplementedError
     
