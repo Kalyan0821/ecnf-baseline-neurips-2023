@@ -46,6 +46,8 @@ def get_graph_inputs(graph_type, positions, n_nodes, r_max, stack=False):
     
     if stack:
         edge_indices = jnp.stack([senders, receivers], axis=0)
+        assert edge_indices.shape[0] == 2
+        
         return edge_vectors, edge_indices
 
     return edge_vectors, senders, receivers

@@ -54,7 +54,7 @@ def build_cnf(
 
     get_cond_vector_field = partial(optimal_transport_conditional_vf, sigma_min=sigma_min)
 
-    assert n_features == 1
+    assert n_features == 1  # we are only generating atom positions, not atom types too
     if model_name == "egnn":
         net = FlatEGNN(n_nodes=n_frames,
                        dim=dim,
@@ -82,7 +82,18 @@ def build_cnf(
                        output_mode=output_mode
         )
     elif model_name == "mace_diffusion":
-        net = FlatMACEDiffusion(None)
+        net = FlatMACEDiffusion(n_nodes=n_frames,
+                                dim=dim,
+                                n_features=n_features,
+                                time_embedding_dim=time_embedding_dim,
+                                readout_mlp_irreps=readout_mlp_irreps,
+                                hidden_irreps=hidden_irreps,
+                                r_max=r_max,
+                                num_interactions=num_interactions,
+                                num_species=int(n_features),
+                                graph_type=graph_type,
+                                avg_num_neighbors=avg_num_neighbors,
+        )
     else:
         raise NotImplementedError
     

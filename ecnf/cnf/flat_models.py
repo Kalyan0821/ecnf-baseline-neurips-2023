@@ -169,7 +169,8 @@ class FlatMACEDiffusion(nn.Module):
                                    num_species=self.num_species,
                                    n_nodes=self.n_nodes,
                                    graph_type=self.graph_type,
-                                   avg_num_neighbors=self.avg_num_neighbors)
+                                   avg_num_neighbors=self.avg_num_neighbors,
+                                   time_embedding_dim=self.time_embedding_dim)
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 

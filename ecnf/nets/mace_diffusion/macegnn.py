@@ -1,5 +1,5 @@
 from typing import Any, Callable, Dict, Optional
-
+import jax
 import torch
 from e3nn import o3
 
@@ -34,12 +34,13 @@ class MACEDiffusionAdapted(torch.nn.Module):
     ):   
         super().__init__()
 
-        # assert dim in [2, 3]
+        assert dim in [2, 3]
 
         hidden_dims = hidden_irreps.count(o3.Irrep(0, 1))  # n_hidden_scalars
         n_dims_in = num_species + time_embedding_dim
         self.embedding = torch.nn.Linear(n_dims_in, hidden_dims)
         
+        self.dim = dim
         self.num_species = num_species
         self.r_max = r_max
         self.n_nodes = n_nodes
@@ -80,23 +81,28 @@ class MACEDiffusionAdapted(torch.nn.Module):
                 positions,        # (B, n_nodes, dim) 
                 node_attrs,       # (B, n_nodes)
                 time_embedding):  # (B, time_embedding_dim)
-
-        node_attrs /= self.normalization_factor  # (num_species,): one-hot?
+        
+        assert positions.shape == (self.n_nodes, self.dim)
+        assert node_attrs.shape == (self.n_nodes,)
 
         # Embeddings
         shifts = 0
-        _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, 
-                                         stack=True)
-        assert edge_index.shape[0] == 2
-        assert node_attrs.shape == time_embedding.shape, f"{node_attrs.shape} != {time_embedding.shape}"
+        _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)
 
+        # convert atomic numbers to one-hot
+        node_attrs = jax.nn.one_hot(node_attrs-1, self.num_species) / self.normalization_factor   # (n_nodes, n_species)
+        assert node_attrs.shape == (self.n_nodes, self.num_species)
+
+        # TODO: broadcast time_embedding to match node_attrs
+        assert node_attrs.shape[:-1] == time_embedding.shape[:-1], f"{node_attrs.shape[:-1]} != {time_embedding.shape[:-1]}"
+        
         node_attrs_and_time = torch.cat([node_attrs, time_embedding], dim=-1)
         vectors, lengths = get_edge_vectors_and_lengths(
             positions=positions, edge_index=edge_index, shifts=shifts)  # edge_vectors
 
         lengths_0 = lengths
         positions_0 = positions
-        h = self.embedding(node_attrs_and_time)  # (num_species + time_embedding_dim) => n_hidden_scalars
+        h = self.embedding(node_attrs_and_time)  # (n_species + time_embedding_dim) => n_hidden_scalars
         node_feats = h
 
         # Many body interactions
@@ -116,6 +122,7 @@ class MACEDiffusionAdapted(torch.nn.Module):
         # Output
         # predicted_noise_positions = remove_mean(positions, data.batch) - positions_0
         predicted_noise_positions = positions - positions_0
+        assert predicted_noise_positions.shape == (self.n_nodes, self.dim)
 
         return predicted_noise_positions
 
@@ -167,7 +174,7 @@ class MACE_layer(torch.nn.Module):
 
     def forward(
         self, vectors, lengths, node_feats, edge_feats, edge_index
-    ) -> Dict[str, Any]:
+    ):
         edge_attrs = self.spherical_harmonics(vectors)
         node_feats, sc = self.interaction(
             node_feats=node_feats,
