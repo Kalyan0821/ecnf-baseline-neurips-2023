@@ -1,56 +1,18 @@
-###########################################################################################
-# Implementation of MACE models and other models based E(3)-Equivariant MPNNs
-# Authors: Ilyes Batatia, Gregor Simm
-# This program is distributed under the ASL License (see ASL.md)
-###########################################################################################
+from typing import Any, Callable, Dict, Optional
 
-from typing import Any, Callable, Dict, List, Optional, Type
-
-import numpy as np
 import torch
 from e3nn import o3
-import jraph
 
 from ecnf.utils.graph import get_graph_inputs
 
-from mace.data import AtomicData
-from mace.data.neighborhood import get_neighborhood
-from mace.tools.diffusion_tools import remove_mean
-from mace.tools.scatter import scatter_sum
-from e3nn import nn as enn
+# from mace.tools.diffusion_tools import remove_mean
 
 from .blocks import (
     DiffusionInteractionBlock,
     EquivariantProductBasisBlock,
-    InteractionBlock,
-    LinearNodeEmbeddingBlock,
-    LinearReadoutBlock,
-    LocalDiffusionInteractionBlock,
-    NoiseScheduleBlock,
-    NonLinearNodeEmbeddingBlock,
     NonLinearReadoutBlock,
-    RadialEmbeddingBlock,
-    RealAgnosticInteractionBlock,
-    RealAgnosticResidualInteractionBlock,
-    TerminationInteractionBlock,
 )
-from .utils import (
-    add_noise_position_and_attr,
-    add_noise_position_and_attr_local,
-    compute_forces,
-    dropout_node,
-    generate_residual_mask,
-    get_central_heavy_atom,
-    get_edge_vectors_and_lengths,
-    get_noisy_batch,
-    get_num_heavy_atoms,
-    get_sigma_and_alpha_given_s,
-    index_add,
-    prepare_batch,
-    reconstruct_neighorhood,
-    sample_time,
-    SNR_weight,
-)
+from .utils import get_edge_vectors_and_lengths
 
 
 class MACEDiffusionAdapted(torch.nn.Module):
@@ -72,7 +34,7 @@ class MACEDiffusionAdapted(torch.nn.Module):
     ):   
         super().__init__()
 
-        assert dim in [2, 3]
+        # assert dim in [2, 3]
 
         hidden_dims = hidden_irreps.count(o3.Irrep(0, 1))  # n_hidden_scalars
         n_dims_in = num_species + time_embedding_dim
@@ -85,10 +47,10 @@ class MACEDiffusionAdapted(torch.nn.Module):
         self.avg_num_neighbors = avg_num_neighbors
         self.normalization_factor = normalization_factor
 
-        self.node_mlp = torch.nn.ModuleList([])
+        self.node_mlps = torch.nn.ModuleList([])
         self.mace_layers = torch.nn.ModuleList([])
         for i in range(0, num_interactions):
-            self.node_mlp.append(
+            self.node_mlps.append(
                 torch.nn.Sequential(
                     torch.nn.Linear(hidden_dims * 2, hidden_dims),
                     torch.nn.SiLU(),
@@ -114,11 +76,10 @@ class MACEDiffusionAdapted(torch.nn.Module):
                 )
             )
 
-    def forward(
-        self,
-        positions,
-        node_attrs,
-        time_embedding):
+    def forward(self,
+                positions,        # (B, n_nodes, dim) 
+                node_attrs,       # (B, n_nodes)
+                time_embedding):  # (B, time_embedding_dim)
 
         node_attrs /= self.normalization_factor  # (num_species,): one-hot?
 
@@ -139,7 +100,7 @@ class MACEDiffusionAdapted(torch.nn.Module):
         node_feats = h
 
         # Many body interactions
-        for node_mlp, mace_layer in zip(self.node_mlp, self.mace_layers):
+        for node_mlp, mace_layer in zip(self.node_mlps, self.mace_layers):
             many_body_scalars, many_body_vectors, node_feats = mace_layer(
                 vectors=vectors,
                 lengths=lengths_0,
@@ -149,13 +110,13 @@ class MACEDiffusionAdapted(torch.nn.Module):
 
             positions = positions + many_body_vectors
             # Node update
-            h = h + node_mlp(torch.cat([h, many_body_scalars], dim=-1))
             vectors, lengths = get_edge_vectors_and_lengths(
                 positions=positions, edge_index=edge_index, shifts=shifts)
 
         # Output
-        predicted_noise_positions = remove_mean(positions, data.batch) - positions_0
-        
+        # predicted_noise_positions = remove_mean(positions, data.batch) - positions_0
+        predicted_noise_positions = positions - positions_0
+
         return predicted_noise_positions
 
 

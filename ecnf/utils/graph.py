@@ -24,12 +24,12 @@ def get_graph_inputs(graph_type, positions, n_nodes, r_max, stack=False):
         edge_vectors = positions[receivers] - positions[senders]
 
     elif graph_type == "nbh":
-        # raise NotImplementedError("Doesn't work with jax-traced positions")
+        raise NotImplementedError("Doesn't work with jax-traced positions")
         senders, receivers, shifts = get_neighborhood(positions=positions, cutoff=r_max)
         edge_vectors = positions[receivers] - positions[senders]
 
     elif graph_type == "mace":
-        # raise NotImplementedError
+        raise NotImplementedError
         _, train_config = load_from_xyz(file_or_path=path)[0]
         graph = graph_from_configuration(train_config, cutoff=r_max)
         senders = graph.senders
