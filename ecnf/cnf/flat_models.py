@@ -162,7 +162,7 @@ class FlatMACEDiffusion(nn.Module):
                                                            skip_node_features=True)
         
         net = MACEDiffusionAdapted(dim=self.dim,
-                                   readout_mlp_irreps=self.readout_mlp_irreps,
+                                   MLP_irreps=self.readout_mlp_irreps,
                                    hidden_irreps=self.hidden_irreps,
                                    r_max=self.r_max,
                                    num_interactions=self.num_interactions,
