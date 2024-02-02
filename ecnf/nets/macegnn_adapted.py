@@ -62,7 +62,7 @@ class MACEAdapted(nn.Module):
                     positions: chex.Array,        # (n_nodes, dim)
                     node_features: chex.Array,    # (n_nodes,)
                     global_features: chex.Array,  # (time_embedding_dim,)
-    ) -> Tuple[chex.Array, chex.Array]:
+        ):
         chex.assert_rank(positions, 2)
         chex.assert_rank(node_features, 1)
         chex.assert_rank(global_features, 1)

@@ -2,9 +2,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
-import torch
 import e3nn_jax as e3nn
-# from e3nn import o3
+import chex
 
 from ecnf.utils.graph import get_graph_inputs
 
@@ -17,19 +16,14 @@ from .blocks import (
 )
 
 # from .utils import get_edge_vectors_and_lengths
-def get_edge_vectors_and_lengths(
-    positions: torch.Tensor,  # [n_nodes, 3]
-    edge_index: torch.Tensor,  # [2, n_edges]
-    shifts: torch.Tensor,  # [n_edges, 3]
-    normalize: bool = False,
-    eps: float = 1e-9,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    sender, receiver = edge_index
-    # From ase.neighborlist:
-    # D = positions[j]-positions[i]+S.dot(cell)
-    # where shifts = S.dot(cell)
-    vectors = positions[receiver] - positions[sender] + shifts  # [n_edges, 3]
-    lengths = torch.linalg.norm(vectors, dim=-1, keepdim=True)  # [n_edges, 1]
+def get_edge_vectors_and_lengths(positions,   # (n_nodes, dim)
+                                 edge_index,  # (2, n_edges)
+                                 shifts,      # (n_edges, dim)
+                                 normalize=False,
+                                 eps=1e-9):
+    senders, receivers = edge_index
+    vectors = positions[receivers] - positions[senders] + shifts  # (n_edges, dim)
+    lengths = jnp.linalg.norm(vectors, axis=-1, keepdims=True)  # (n_edges, 1)
     if normalize:
         vectors_normed = vectors / (lengths + eps)
         return vectors_normed, lengths
@@ -78,28 +72,44 @@ class MACEDiffusionAdapted(nn.Module):
                            r_max=self.r_max)
                     )
             
-        self.mace_layers = nn.Sequential(mace_layers)
+        # self.mace_layers = nn.Sequential(mace_layers)
+        self.mace_layers = mace_layers            
+
 
     def __call__(self,
-                 positions,        # (B, n_nodes, dim) 
-                 node_attrs,       # (B, n_nodes)
-                 time_embedding):  # (B, time_embedding_dim)
-        
-        assert positions.shape == (self.n_nodes, self.dim), f"{positions.shape} != ({self.n_nodes}, {self.dim})"
-        assert node_attrs.shape == (self.n_nodes,)
+                 positions: chex.Array,        # (B, n_nodes, dim) 
+                 node_features: chex.Array,    # (B, n_nodes)
+                 global_features: chex.Array,  # (B, time_embedding_dim)
+    ) -> chex.Array:
+        assert positions.ndim in (2, 3)
+        vmap = positions.ndim == 3
+        if vmap:
+            return jax.vmap(self.call_single)(positions, node_features, global_features)
+        else:
+            return self.call_single(positions, node_features, global_features)
 
-        # Embeddings
-        shifts = 0
+
+    def call_single(self,
+                    positions: chex.Array,       # (n_nodes, dim) 
+                    node_features: chex.Array,   # (n_nodes,)
+                    time_embedding: chex.Array,  # (time_embedding_dim,)
+        ):
+        chex.assert_rank(positions, 2)
+        chex.assert_rank(node_features, 1)
+        chex.assert_rank(time_embedding, 1)
+        chex.assert_axis_dimension(node_features, 0, self.n_nodes)
+
         _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)
+        shifts = 0
 
         # convert atomic numbers to one-hot
-        node_attrs = jax.nn.one_hot(node_attrs-1, self.num_species) / self.normalization_factor   # (n_nodes, n_species)
+        node_attrs = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
         assert node_attrs.shape == (self.n_nodes, self.num_species)
 
-        # TODO: broadcast time_embedding to match node_attrs
-        assert node_attrs.shape[:-1] == time_embedding.shape[:-1], f"{node_attrs.shape[:-1]} != {time_embedding.shape[:-1]}"
+        # broadcast time_embedding to match node_attrs
+        time_embedding = jnp.tile(time_embedding, (self.n_nodes, 1))  # (n_nodes, time_embedding_dim)
         
-        node_attrs_and_time = jnp.concatenate([node_attrs, time_embedding], dim=-1)  # (n_nodes, n_species + time_embedding_dim)
+        node_attrs_and_time = jnp.concatenate([node_attrs, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
         assert node_attrs_and_time.shape == (self.n_nodes, self.num_species + self.time_embedding_dim)
         vectors, lengths = get_edge_vectors_and_lengths(
             positions=positions, edge_index=edge_index, shifts=shifts)  # edge_vectors
@@ -143,7 +153,7 @@ class MACE_layer(nn.Module):
 
     def setup(self):
         node_attr_irreps = e3nn.Irreps([(self.num_species, (0, 1))])
-        num_features = self.hidden_irreps.count(e3nn.Irrep(0, 1))
+        num_features = self.hidden_irreps.count("0e")
         edge_feats_irreps = e3nn.Irreps([(num_features, (0, 1))])
         sh_irreps = e3nn.Irreps.spherical_harmonics(self.max_ell)
         interaction_irreps = (sh_irreps * num_features).sort()[0].simplify()
