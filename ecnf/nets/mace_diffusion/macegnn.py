@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Optional
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
@@ -6,29 +6,15 @@ import e3nn_jax as e3nn
 import chex
 
 from ecnf.utils.graph import get_graph_inputs
-
 # from mace.tools.diffusion_tools import remove_mean
 
-from .blocks import (
+from .blocks_jax import (
     DiffusionInteractionBlock,
     EquivariantProductBasisBlock,
     NonLinearReadoutBlock,
 )
 
-# from .utils import get_edge_vectors_and_lengths
-def get_edge_vectors_and_lengths(positions,   # (n_nodes, dim)
-                                 edge_index,  # (2, n_edges)
-                                 shifts,      # (n_edges, dim)
-                                 normalize=False,
-                                 eps=1e-9):
-    senders, receivers = edge_index
-    vectors = positions[receivers] - positions[senders] + shifts  # (n_edges, dim)
-    lengths = jnp.linalg.norm(vectors, axis=-1, keepdims=True)  # (n_edges, 1)
-    if normalize:
-        vectors_normed = vectors / (lengths + eps)
-        return vectors_normed, lengths
-
-    return vectors, lengths
+from .utils_jax import get_edge_vectors_and_lengths
 
 
 class MACEDiffusionAdapted(nn.Module):
@@ -50,8 +36,11 @@ class MACEDiffusionAdapted(nn.Module):
 
     def setup(self):
         assert self.dim in [2, 3]
-        
-        hidden_dims = self.hidden_irreps.count("0e")  # n_scalars
+
+        MLP_irreps = e3nn.Irreps(self.MLP_irreps) if isinstance(self.MLP_irreps, str) else self.MLP_irreps
+        hidden_irreps = e3nn.Irreps(self.hidden_irreps) if isinstance(self.hidden_irreps, str) else self.hidden_irreps
+
+        hidden_dims = hidden_irreps.count(e3nn.Irrep(0, 1))  # n_scalars
         self.embedding = nn.Dense(features=hidden_dims)
         
         mace_layers = []
@@ -59,7 +48,7 @@ class MACEDiffusionAdapted(nn.Module):
             if i == 0:
                 node_feats_irreps = e3nn.Irreps([(hidden_dims, (0, 1))])  # n_scalars x 0e
             else:
-                node_feats_irreps = self.hidden_irreps  # n_scalars x 0e + n_vectors x 1o
+                node_feats_irreps = hidden_irreps  # n_scalars x 0e + n_vectors x 1o
             
             mace_layers.append(
                 MACE_layer(max_ell=self.max_ell,
@@ -67,8 +56,8 @@ class MACEDiffusionAdapted(nn.Module):
                            correlation=self.correlation,
                            num_species=self.num_species,
                            node_feats_irreps=node_feats_irreps,
-                           hidden_irreps=self.hidden_irreps,
-                           MLP_irreps=self.MLP_irreps,
+                           hidden_irreps=hidden_irreps,
+                           MLP_irreps=MLP_irreps,
                            r_max=self.r_max)
                     )
             
@@ -101,6 +90,15 @@ class MACEDiffusionAdapted(nn.Module):
 
         _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)
         shifts = 0
+        # get edge vectors
+        vectors, lengths = get_edge_vectors_and_lengths(
+            positions=positions, edge_index=edge_index, shifts=shifts)  # (n_edges, dim), (n_edges, 1)
+
+        if self.dim == 2:
+            n_edges = vectors.shape[0]
+            vectors = jnp.concatenate([jnp.zeros((n_edges, 1)),
+                                       vectors], axis=1)
+            assert vectors.shape == (n_edges, 3)
 
         # convert atomic numbers to one-hot
         node_attrs = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
@@ -111,8 +109,7 @@ class MACEDiffusionAdapted(nn.Module):
         
         node_attrs_and_time = jnp.concatenate([node_attrs, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
         assert node_attrs_and_time.shape == (self.n_nodes, self.num_species + self.time_embedding_dim)
-        vectors, lengths = get_edge_vectors_and_lengths(
-            positions=positions, edge_index=edge_index, shifts=shifts)  # edge_vectors
+
 
         lengths_0 = lengths
         positions_0 = positions
@@ -153,7 +150,7 @@ class MACE_layer(nn.Module):
 
     def setup(self):
         node_attr_irreps = e3nn.Irreps([(self.num_species, (0, 1))])
-        num_features = self.hidden_irreps.count("0e")
+        num_features = self.hidden_irreps.count(e3nn.Irrep(0, 1))
         edge_feats_irreps = e3nn.Irreps([(num_features, (0, 1))])
         sh_irreps = e3nn.Irreps.spherical_harmonics(self.max_ell)
         interaction_irreps = (sh_irreps * num_features).sort()[0].simplify()
