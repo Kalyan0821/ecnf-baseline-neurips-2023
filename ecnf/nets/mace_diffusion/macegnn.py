@@ -1,12 +1,13 @@
-from typing import Optional
+from typing import Optional, List
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
 import e3nn_jax as e3nn
+import jraph
 import chex
 
 from ecnf.utils.graph import get_graph_inputs
-# from mace.tools.diffusion_tools import remove_mean
+import ecnf.nets.mace_tools as tools
 
 from .blocks_jax import (
     DiffusionInteractionBlock,
@@ -33,9 +34,18 @@ class MACEDiffusionAdapted(nn.Module):
     normalization_factor: int = 1
     max_ell: int = 3
     correlation: int = 3
+    train_graphs: List[jraph.GraphsTuple] = None
 
     def setup(self):
         assert self.dim in [2, 3]
+
+        if self.avg_num_neighbors == "average":
+            assert self.train_graphs is not None
+            avg_num_neighbors = tools.compute_avg_num_neighbors(self.train_graphs)
+        elif self.avg_num_neighbors is None:
+            avg_num_neighbors = self.n_nodes - 1
+        else:
+            avg_num_neighbors = self.avg_num_neighbors
 
         MLP_irreps = e3nn.Irreps(self.MLP_irreps) if isinstance(self.MLP_irreps, str) else self.MLP_irreps
         hidden_irreps = e3nn.Irreps(self.hidden_irreps) if isinstance(self.hidden_irreps, str) else self.hidden_irreps
@@ -52,7 +62,7 @@ class MACEDiffusionAdapted(nn.Module):
             
             mace_layers.append(
                 MACE_layer(max_ell=self.max_ell,
-                           avg_num_neighbors=self.avg_num_neighbors,
+                           avg_num_neighbors=avg_num_neighbors,
                            correlation=self.correlation,
                            num_species=self.num_species,
                            node_feats_irreps=node_feats_irreps,
@@ -98,11 +108,13 @@ class MACEDiffusionAdapted(nn.Module):
             n_edges = vectors.shape[0]
             vectors = jnp.concatenate([jnp.zeros((n_edges, 1)),
                                        vectors], axis=1)
-        assert vectors.shape == (n_edges, 3)
+            assert vectors.shape == (n_edges, 3)
 
         # convert atomic numbers to one-hot
         node_attrs = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
         assert node_attrs.shape == (self.n_nodes, self.num_species)
+
+        
 
         # broadcast time_embedding to match node_attrs
         time_embedding = jnp.tile(time_embedding, (self.n_nodes, 1))  # (n_nodes, time_embedding_dim)

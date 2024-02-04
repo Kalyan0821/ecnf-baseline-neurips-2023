@@ -49,6 +49,6 @@ class reshape_irreps(nn.Module):
             d = ir.dim
             field = tensor[:, ix : ix + mul * d]  # [batch, sample, mul * repr]
             ix += mul * d
-            field = field.reshape(batch, mul, d)
-            out.append(field)
+            field = field.reshape((batch, mul, d))
+            out.append(field.array)
         return jnp.concatenate(out, axis=-1)

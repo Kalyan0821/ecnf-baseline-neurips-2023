@@ -7,8 +7,8 @@ flow:
   base_scale: 2.
   network:
     # type: egnn
-    type: mace
-    # type: mace_diffusion
+    # type: mace
+    type: mace_diffusion
     mlp_units: [256, 256, 256, 256]
     n_blocks_egnn: 5
     n_invariant_feat_hidden: 32
@@ -53,11 +53,11 @@ training:
 
 
 logger:
-#  list_logger: null
-#  pandas_logger:
-#    save_period: 1000 # how often to save the pandas dataframe as a csv
-  wandb:
-    name: qm9_fm
-    project: ecnf
-    entity: kalyan0821
-    tags: [qm9,flow_matching,final2,final3]
+ list_logger: null
+ pandas_logger:
+   save_period: 1000 # how often to save the pandas dataframe as a csv
+  # wandb:
+  #   name: qm9_fm
+  #   project: ecnf
+  #   entity: kalyan0821
+  #   tags: [qm9,flow_matching,final2,final3]

@@ -9,8 +9,6 @@ import flax
 import jax.numpy as jnp
 import chex
 
-from mace.tools.scatter import scatter_sum
-
 from .irreps_tools_jax import (reshape_irreps, tp_out_irreps_with_instructions)
 from .symmetric_contraction import SymmetricContraction
 
@@ -41,38 +39,24 @@ class DiffusionInteractionBlock(flax.linen.Module):
 
         input_dim = self.hidden_irreps.count(e3nn.Irrep(0, 1))
 
-        # Convolution weights
+        # TensorProduct convolution weights
         irreps_mid, instructions = tp_out_irreps_with_instructions(
             self.node_feats_irreps,
             self.edge_attrs_irreps,
             self.target_irreps)
-        irreps_in1 = self.node_feats_irreps
-        irreps_in2 = self.edge_attrs_irreps
-        
-        weight_numel = sum(
-            [irreps_in1[ins[0]].mul * irreps_in2[ins[1]].mul for ins in instructions if ins[4]]
-            )
-        
-        layer = flax.linen.Dense(features=weight_numel, 
+        self.irreps_mid = irreps_mid
+                
+        layer = flax.linen.Dense(features=irreps_mid.num_irreps, 
                                  use_bias=False, 
                                  kernel_init=flax.linen.initializers.variance_scaling(scale=(0.001)**2, mode="fan_avg", distribution="uniform")
                                  )
-
         self.conv_tp_weights = flax.linen.Sequential(
-            [flax.linen.Dense(features=input_dim),
-             flax.linen.silu,
-             flax.linen.Dense(features=input_dim),
-             flax.linen.silu,
-             layer]
+                [flax.linen.Dense(features=input_dim),
+                flax.linen.silu,
+                flax.linen.Dense(features=input_dim),
+                flax.linen.silu,
+                layer]
             )
-
-        # TensorProduct
-        self.conv_tp = e3nn.legacy.FunctionalTensorProduct(irreps_in1=irreps_in1,
-                                                           irreps_in2=irreps_in2,
-                                                           irreps_out=irreps_mid,
-                                                           instructions=instructions,
-                                                           irrep_normalization="component",
-                                                           path_normalization="element")
 
         # Linear
         irreps_mid = irreps_mid.simplify()
@@ -84,7 +68,6 @@ class DiffusionInteractionBlock(flax.linen.Module):
         self.reshape = reshape_irreps(self.irreps_out)
 
 
-
     def __call__(
         self,
         node_feats: chex.Array,
@@ -94,32 +77,34 @@ class DiffusionInteractionBlock(flax.linen.Module):
         edge_index: chex.Array,
     ) -> Tuple[chex.Array, chex.Array]:
         
-        sender, receiver = edge_index
-        num_nodes = node_feats.shape[0]
-
         node_scalars = self.linear_scalar(node_feats)
-        
         node_feats = self.linear_up(node_feats)
 
+        sender, receiver = edge_index
         tp_weights = self.conv_tp_weights(
             jnp.concatenate(
                 [node_scalars[sender].array, node_scalars[receiver].array, edge_feats, lengths],
                 axis=-1)
         )
-        mji = self.conv_tp.left_right(weights=tp_weights,
-                                      input1=node_feats[sender],
-                                      input2=edge_attrs,
-                                      )  # (n_edges, irreps)
 
-        message = scatter_sum(
-            src=mji, index=receiver, dim=0, dim_size=num_nodes
-        )  # [n_nodes, irreps]
+        mji = e3nn.tensor_product(input1=node_feats[sender],
+                                  input2=edge_attrs,
+                                  filter_ir_out=self.irreps_mid)
+        mji *= tp_weights
         
+        num_nodes = node_feats.shape[0]
+        message = e3nn.scatter_sum(data=mji, dst=receiver, output_size=num_nodes)  # (n_nodes, irreps)
+
         message = self.linear(message) / self.avg_num_neighbors
+
+        print(message.shape, message.irreps)
+        print(message)
+        print("-----------------------------")
+
         return (
             self.reshape(message),
             None,
-        )  # [n_nodes, channels, (lmax + 1)**2]
+        )  # (n_nodes, channels, (lmax + 1)**2)
 
 
 class EquivariantProductBasisBlock(flax.linen.Module):
