@@ -15,7 +15,7 @@ from .irreps_tools_jax import (reshape_irreps, tp_out_irreps_with_instructions)
 from .symmetric_contraction import SymmetricContraction
 
 
-class DiffusionInteractionBlock(ABC, flax.linen.Module):
+class DiffusionInteractionBlock(flax.linen.Module):
     node_attrs_irreps: e3nn.Irreps
     node_feats_irreps: e3nn.Irreps
     edge_attrs_irreps: e3nn.Irreps
@@ -25,10 +25,7 @@ class DiffusionInteractionBlock(ABC, flax.linen.Module):
     avg_num_neighbors: float
     r_max: Optional[float] = None
 
-    def setup(self):
-        self.setup_jax()
-
-    def setup_jax(self):    
+    def setup(self):  
         # First linear
         irreps_scalar = e3nn.Irreps(
             [(self.node_feats_irreps.count(e3nn.Irrep(0, 1)), (0, 1))]
@@ -42,33 +39,25 @@ class DiffusionInteractionBlock(ABC, flax.linen.Module):
                                           irreps_out=self.node_feats_irreps,
                                           path_normalization="element")
 
-        # TensorProduct
+        input_dim = self.hidden_irreps.count(e3nn.Irrep(0, 1))
+
+        # Convolution weights
         irreps_mid, instructions = tp_out_irreps_with_instructions(
             self.node_feats_irreps,
             self.edge_attrs_irreps,
-            self.target_irreps,
-        )
-
+            self.target_irreps)
         irreps_in1 = self.node_feats_irreps
         irreps_in2 = self.edge_attrs_irreps
-        self.conv_tp = e3nn.legacy.FunctionalTensorProduct(irreps_in1=irreps_in1,
-                                                           irreps_in2=irreps_in2,
-                                                           irreps_out=irreps_mid,
-                                                           instructions=instructions,
-                                                           irrep_normalization="component",
-                                                           path_normalization="element")
-
-        # Convolution weights
-        input_dim = self.hidden_irreps.count(e3nn.Irrep(0, 1))
-        weight_numel = sum(math.prod((irreps_in1[ins[0]].mul, irreps_in2[ins[1]].mul)) 
-                           for ins in instructions if ins[4]
-                           )
+        
+        weight_numel = sum(
+            [irreps_in1[ins[0]].mul * irreps_in2[ins[1]].mul for ins in instructions if ins[4]]
+            )
+        
         layer = flax.linen.Dense(features=weight_numel, 
                                  use_bias=False, 
                                  kernel_init=flax.linen.initializers.variance_scaling(scale=(0.001)**2, mode="fan_avg", distribution="uniform")
                                  )
 
-        # Selector TensorProduct
         self.conv_tp_weights = flax.linen.Sequential(
             [flax.linen.Dense(features=input_dim),
              flax.linen.silu,
@@ -76,6 +65,14 @@ class DiffusionInteractionBlock(ABC, flax.linen.Module):
              flax.linen.silu,
              layer]
             )
+
+        # TensorProduct
+        self.conv_tp = e3nn.legacy.FunctionalTensorProduct(irreps_in1=irreps_in1,
+                                                           irreps_in2=irreps_in2,
+                                                           irreps_out=irreps_mid,
+                                                           instructions=instructions,
+                                                           irrep_normalization="component",
+                                                           path_normalization="element")
 
         # Linear
         irreps_mid = irreps_mid.simplify()
@@ -99,25 +96,25 @@ class DiffusionInteractionBlock(ABC, flax.linen.Module):
         
         sender, receiver = edge_index
         num_nodes = node_feats.shape[0]
+
         node_scalars = self.linear_scalar(node_feats)
+        
         node_feats = self.linear_up(node_feats)
+
         tp_weights = self.conv_tp_weights(
-            # torch.cat(
-            #     [node_scalars[sender], node_scalars[receiver], edge_feats, lengths],
-            #     dim=-1,
-            # )
             jnp.concatenate(
                 [node_scalars[sender].array, node_scalars[receiver].array, edge_feats, lengths],
-                axis=-1,
-            )
-
+                axis=-1)
         )
-        mji = self.conv_tp(
-            node_feats[sender], edge_attrs, tp_weights
-        )  # [n_edges, irreps]
+        mji = self.conv_tp.left_right(weights=tp_weights,
+                                      input1=node_feats[sender],
+                                      input2=edge_attrs,
+                                      )  # (n_edges, irreps)
+
         message = scatter_sum(
             src=mji, index=receiver, dim=0, dim_size=num_nodes
         )  # [n_nodes, irreps]
+        
         message = self.linear(message) / self.avg_num_neighbors
         return (
             self.reshape(message),

@@ -59,7 +59,7 @@ class MACEDiffusionAdapted(nn.Module):
                            hidden_irreps=hidden_irreps,
                            MLP_irreps=MLP_irreps,
                            r_max=self.r_max)
-                    )
+            )
             
         # self.mace_layers = nn.Sequential(mace_layers)
         self.mace_layers = mace_layers            
@@ -98,7 +98,7 @@ class MACEDiffusionAdapted(nn.Module):
             n_edges = vectors.shape[0]
             vectors = jnp.concatenate([jnp.zeros((n_edges, 1)),
                                        vectors], axis=1)
-            assert vectors.shape == (n_edges, 3)
+        assert vectors.shape == (n_edges, 3)
 
         # convert atomic numbers to one-hot
         node_attrs = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
@@ -161,7 +161,7 @@ class MACE_layer(nn.Module):
                                                                       input=x,
                                                                       normalize=True,
                                                                       normalization="component")
-
+        
         self.interaction = DiffusionInteractionBlock(
             node_attrs_irreps=node_attr_irreps,
             node_feats_irreps=self.node_feats_irreps,
@@ -172,6 +172,7 @@ class MACE_layer(nn.Module):
             avg_num_neighbors=self.avg_num_neighbors,
             r_max=self.r_max,
         )
+
         self.product = EquivariantProductBasisBlock(
             node_feats_irreps=self.interaction.target_irreps,
             target_irreps=self.hidden_irreps,

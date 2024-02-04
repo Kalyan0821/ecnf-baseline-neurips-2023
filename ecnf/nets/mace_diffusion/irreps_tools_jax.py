@@ -4,7 +4,7 @@ import flax.linen as nn
 import chex
 import jax.numpy as jnp
 
-# Based on mir-group/nequip
+
 def tp_out_irreps_with_instructions(
     irreps1: e3nn.Irreps, 
     irreps2: e3nn.Irreps, 
