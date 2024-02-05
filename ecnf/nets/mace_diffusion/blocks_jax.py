@@ -10,7 +10,7 @@ import jax.numpy as jnp
 import chex
 
 from .irreps_tools_jax import (reshape_irreps, tp_out_irreps_with_instructions)
-from .symmetric_contraction import SymmetricContraction
+from .symmetric_contraction_jax import SymmetricContraction
 
 
 class DiffusionInteractionBlock(flax.linen.Module):
@@ -111,31 +111,30 @@ class EquivariantProductBasisBlock(flax.linen.Module):
     node_feats_irreps: e3nn.Irreps
     target_irreps: e3nn.Irreps
     correlation: Union[int, Dict[str, int]]
+    num_species: Optional[int] = None
+
     element_dependent: bool = True
     use_sc: bool = True
-    num_species: Optional[int] = None
 
     def setup(self):
         self.symmetric_contractions = SymmetricContraction(
             irreps_in=self.node_feats_irreps,
             irreps_out=self.target_irreps,
             correlation=self.correlation,
-            element_dependent=self.element_dependent,
             num_species=self.num_species,
+
+            element_dependent=self.element_dependent,
         )
         # Update linear
-        self.linear = o3.Linear(
-            self.target_irreps,
-            self.target_irreps,
-            internal_weights=True,
-            shared_weights=True,
-        )
+        self.linear = e3nn.flax.Linear(irreps_in=self.target_irreps,
+                                       irreps_out=self.target_irreps,
+                                       path_normalization="element")
 
     def __call__(
         self, 
         node_feats: chex.Array, 
+        node_attrs: chex.Array,  # may be None ??
         sc: chex.Array, 
-        node_attrs: chex.Array
     ) -> chex.Array:
         node_feats = self.symmetric_contractions(node_feats, node_attrs)
         if self.use_sc:

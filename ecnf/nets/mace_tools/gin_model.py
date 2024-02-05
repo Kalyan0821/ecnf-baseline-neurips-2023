@@ -113,7 +113,6 @@ def model(
     if avg_num_neighbors == "average":
         assert train_graphs is not None
         avg_num_neighbors = tools.compute_avg_num_neighbors(train_graphs)
-
     elif avg_num_neighbors is None:
         avg_num_neighbors = n_nodes - 1
 

@@ -71,7 +71,6 @@ class MACEDiffusionAdapted(nn.Module):
                            r_max=self.r_max)
             )
             
-        # self.mace_layers = nn.Sequential(mace_layers)
         self.mace_layers = mace_layers            
 
 
@@ -189,8 +188,9 @@ class MACE_layer(nn.Module):
             node_feats_irreps=self.interaction.target_irreps,
             target_irreps=self.hidden_irreps,
             correlation=self.correlation,
-            element_dependent=False,
             num_species=self.num_species,
+
+            element_dependent=False,
             use_sc=False,
         )
         self.readout = NonLinearReadoutBlock(
@@ -208,7 +208,7 @@ class MACE_layer(nn.Module):
             lengths=lengths,
             edge_index=edge_index,
         )
-        node_feats = self.product(node_feats=node_feats, sc=sc, node_attrs=None)
+        node_feats = self.product(node_feats=node_feats, node_attrs=None, sc=sc)
         node_out = self.readout(node_feats).squeeze(-1)  # (n_nodes, n_feats x 0e + 1 x 1o)
         return node_out[:, :-3], node_out[:, -3:], node_feats
 
