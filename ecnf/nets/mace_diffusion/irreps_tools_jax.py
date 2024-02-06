@@ -38,17 +38,14 @@ def tp_out_irreps_with_instructions(
     return irreps_out, instructions
 
 
-class reshape_irreps(nn.Module):
-    irreps: e3nn.Irreps
-
-    def __call__(self, tensor: chex.Array) -> chex.Array:
-        ix = 0
-        out = []
-        batch, _ = tensor.shape
-        for mul, ir in self.irreps:
-            d = ir.dim
-            field = tensor[:, ix : ix + mul * d]  # [batch, sample, mul * repr]
-            ix += mul * d
-            field = field.reshape((batch, mul, d))
-            out.append(field.array)
-        return jnp.concatenate(out, axis=-1)
+def reshape_irreps(tensor: chex.Array, irreps: e3nn.Irreps) -> chex.Array:
+    ix = 0
+    out = []
+    batch, _ = tensor.shape
+    for mul, ir in irreps:
+        d = ir.dim
+        field = tensor[:, ix : ix + mul * d]  # [batch, sample, mul * repr]
+        ix += mul * d
+        field = field.reshape((batch, mul, d))
+        out.append(field)
+    return e3nn.concatenate(out, axis=-1)

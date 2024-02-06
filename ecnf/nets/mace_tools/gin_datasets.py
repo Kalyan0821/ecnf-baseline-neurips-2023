@@ -5,8 +5,7 @@ import gin
 import numpy as np
 from tqdm import tqdm
 
-from mace_jax import data
-
+import mace_data as data
 
 @gin.configurable
 def datasets(

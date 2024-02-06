@@ -177,18 +177,8 @@ class FlatMACEDiffusion(nn.Module):
                       time_embedding  # (B, time_embedding_dim)
                       )  # (B, n_nodes, dim)
         
+        print(vectors.shape)
+
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)
-
-
-
-
-    
-
-
-
-
-
-
-
 

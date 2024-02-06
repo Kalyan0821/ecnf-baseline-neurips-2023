@@ -7,11 +7,12 @@ from typing import IO, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import ase.data
 import ase.io
 import jax
+import jax.numpy as jnp
 import jraph
 import numpy as np
 from roundmantissa import ceil_mantissa
 
-from mace_jax.data.neighborhood import get_neighborhood
+from ecnf.nets.mace_data.neighborhood import get_neighborhood
 
 from .dynamically_batch import dynamically_batch
 

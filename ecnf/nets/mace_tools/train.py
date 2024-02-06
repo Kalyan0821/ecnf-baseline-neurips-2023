@@ -11,7 +11,8 @@ import numpy as np
 import optax
 import tqdm
 
-from mace_jax import data, tools
+import ecnf.nets.mace_data as data
+import ecnf.nets.mace_tools as tools
 
 
 def train(

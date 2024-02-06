@@ -103,22 +103,27 @@ class MACEDiffusionAdapted(nn.Module):
         vectors, lengths = get_edge_vectors_and_lengths(
             positions=positions, edge_index=edge_index, shifts=shifts)  # (n_edges, dim), (n_edges, 1)
 
+        # concat zeros along the z axis if problem is 2D
         if self.dim == 2:
             n_edges = vectors.shape[0]
-            vectors = jnp.concatenate([jnp.zeros((n_edges, 1)),
-                                       vectors], axis=1)
+            vectors = jnp.concatenate([vectors,
+                                       jnp.zeros((n_edges, 1))], axis=1)
+            positions = jnp.concatenate([positions,
+                                       jnp.zeros((self.n_nodes, 1))], axis=1)
             assert vectors.shape == (n_edges, 3)
+            assert positions.shape == (self.n_nodes, 3)
+            
 
         # convert atomic numbers to one-hot
-        node_attrs = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
-        assert node_attrs.shape == (self.n_nodes, self.num_species)
+        node_attrs = node_features
+        node_attrs_onehot = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
+        assert node_attrs_onehot.shape == (self.n_nodes, self.num_species)
 
         
-
-        # broadcast time_embedding to match node_attrs
+        # broadcast time_embedding to match node_attrs_onehot
         time_embedding = jnp.tile(time_embedding, (self.n_nodes, 1))  # (n_nodes, time_embedding_dim)
         
-        node_attrs_and_time = jnp.concatenate([node_attrs, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
+        node_attrs_and_time = jnp.concatenate([node_attrs_onehot, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
         assert node_attrs_and_time.shape == (self.n_nodes, self.num_species + self.time_embedding_dim)
 
 
@@ -133,18 +138,19 @@ class MACEDiffusionAdapted(nn.Module):
                 vectors=vectors,
                 lengths=lengths_0,
                 node_feats=node_feats,
+                node_attrs=node_attrs,
                 edge_feats=lengths,
                 edge_index=edge_index)
 
-            positions = positions + many_body_vectors
+            positions = positions + many_body_vectors.array
             # Node update
             vectors, lengths = get_edge_vectors_and_lengths(
                 positions=positions, edge_index=edge_index, shifts=shifts)
 
         # Output
-        # predicted_noise_positions = remove_mean(positions, data.batch) - positions_0
-        predicted_noise_positions = positions - positions_0
-        assert predicted_noise_positions.shape == (self.n_nodes, self.dim)
+        predicted_noise_positions = (positions - positions_0)
+
+        predicted_noise_positions = predicted_noise_positions[:, :self.dim]
 
         return predicted_noise_positions
 
@@ -193,22 +199,22 @@ class MACE_layer(nn.Module):
             element_dependent=False,
             use_sc=False,
         )
+
         self.readout = NonLinearReadoutBlock(
             self.hidden_irreps, self.MLP_irreps, nn.activation.silu, num_features
         )
 
 
-    def __call__(self, vectors, lengths, node_feats, edge_feats, edge_index):
-
-        edge_attrs = self.spherical_harmonics(vectors)
+    def __call__(self, vectors, lengths, node_feats, node_attrs, edge_feats, edge_index):
         node_feats, sc = self.interaction(
             node_feats=node_feats,
-            edge_attrs=edge_attrs,
+            edge_attrs=self.spherical_harmonics(vectors),
             edge_feats=edge_feats,
             lengths=lengths,
             edge_index=edge_index,
         )
-        node_feats = self.product(node_feats=node_feats, node_attrs=None, sc=sc)
-        node_out = self.readout(node_feats).squeeze(-1)  # (n_nodes, n_feats x 0e + 1 x 1o)
+        node_feats = self.product(node_feats=node_feats, node_attrs=node_attrs, sc=sc)  
+        node_out = self.readout(node_feats)  # (n_nodes, n_feats x 0e + 1 x 1o)
+        
         return node_out[:, :-3], node_out[:, -3:], node_feats
 

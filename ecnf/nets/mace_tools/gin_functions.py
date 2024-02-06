@@ -14,7 +14,8 @@ from tqdm import tqdm
 from unique_names_generator import get_random_name
 from unique_names_generator.data import ADJECTIVES, NAMES
 
-from mace_jax import modules, tools
+import mace_modules as modules
+import mace_tools as tools
 
 loss = gin.configurable("loss")(modules.WeightedEnergyForcesStressLoss)
 

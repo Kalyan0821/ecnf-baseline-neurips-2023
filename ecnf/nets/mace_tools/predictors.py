@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import jraph
 
-from mace_jax import tools
+import ecnf.nets.mace_tools as tools
 
 
 def predict_energy_forces_stress(
