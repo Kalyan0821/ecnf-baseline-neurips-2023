@@ -46,6 +46,8 @@ class MACEDiffusionAdapted(nn.Module):
             avg_num_neighbors = self.n_nodes - 1
         else:
             avg_num_neighbors = self.avg_num_neighbors
+            
+        assert avg_num_neighbors > 0
 
         MLP_irreps = e3nn.Irreps(self.MLP_irreps) if isinstance(self.MLP_irreps, str) else self.MLP_irreps
         hidden_irreps = e3nn.Irreps(self.hidden_irreps) if isinstance(self.hidden_irreps, str) else self.hidden_irreps
