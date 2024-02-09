@@ -7,7 +7,7 @@ from ecnf.nets.egnn import EGNN
 from ecnf.nets.macegnn_adapted import MACEAdapted
 from ecnf.nets.mace_diffusion.macegnn import MACEDiffusionAdapted
 import jraph
-
+import jax
 
 def get_timestep_embedding(timesteps: chex.Array, embedding_dim: int):
     """Build sinusoidal embeddings (from Fairseq)."""
@@ -67,7 +67,8 @@ class FlatEGNN(nn.Module):
 
         net = EGNN(n_blocks=self.n_blocks_egnn,
                    mlp_units=self.mlp_units,
-                   n_invariant_feat_hidden=self.n_invariant_feat_hidden)
+                   n_invariant_feat_hidden=self.n_invariant_feat_hidden,
+                   )
 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes, n_invariant_feat_hidden) 
@@ -122,7 +123,8 @@ class FlatMACE(nn.Module):
                           n_nodes=self.n_nodes,
                           graph_type=self.graph_type,
                           avg_num_neighbors=self.avg_num_neighbors,
-                          output_mode=self.output_mode)
+                          output_mode=self.output_mode,
+                          )
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 
@@ -170,14 +172,14 @@ class FlatMACEDiffusion(nn.Module):
                                    n_nodes=self.n_nodes,
                                    graph_type=self.graph_type,
                                    avg_num_neighbors=self.avg_num_neighbors,
-                                   time_embedding_dim=self.time_embedding_dim)
+                                   )
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
                       node_features,  # (B, n_nodes) 
                       time_embedding  # (B, time_embedding_dim)
                       )  # (B, n_nodes, dim)
         
-        print(vectors.shape)
+        # jax.debug.print("{}", vectors.mean())
 
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)

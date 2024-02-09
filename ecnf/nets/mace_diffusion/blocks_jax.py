@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import Callable, Dict, Optional, Tuple, Union
 
 import e3nn_jax as e3nn
@@ -108,14 +107,6 @@ class EquivariantProductBasisBlock(flax.linen.Module):
     use_sc: bool = True
 
     def setup(self):
-        # self.symmetric_contractions = SymmetricContraction(
-        #     irreps_in=self.node_feats_irreps,
-        #     irreps_out=self.target_irreps,
-        #     correlation=self.correlation,
-        #     num_species=self.num_species,
-
-        #     element_dependent=self.element_dependent,
-        # )
         self.symmetric_contractions = SymmetricContraction(
             correlation=self.correlation,
             keep_irrep_out=self.target_irreps,
@@ -132,7 +123,7 @@ class EquivariantProductBasisBlock(flax.linen.Module):
     def __call__(
         self, 
         node_feats: chex.Array, 
-        node_attrs: chex.Array,  # may be None ??
+        node_attrs: chex.Array,
         sc: chex.Array, 
     ) -> chex.Array:
         

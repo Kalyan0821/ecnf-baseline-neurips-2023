@@ -29,7 +29,6 @@ class MACEDiffusionAdapted(nn.Module):
     n_nodes: int
     graph_type: str
     avg_num_neighbors: float
-    time_embedding_dim: int
 
     normalization_factor: int = 1
     max_ell: int = 3
@@ -82,7 +81,7 @@ class MACEDiffusionAdapted(nn.Module):
                  global_features: chex.Array,  # (B, time_embedding_dim)
     ) -> chex.Array:
         assert positions.ndim in (2, 3)
-        vmap = positions.ndim == 3
+        vmap = (positions.ndim == 3)
         if vmap:
             return jax.vmap(self.call_single)(positions, node_features, global_features)
         else:
@@ -126,8 +125,6 @@ class MACEDiffusionAdapted(nn.Module):
         time_embedding = jnp.tile(time_embedding, (self.n_nodes, 1))  # (n_nodes, time_embedding_dim)
         
         node_attrs_and_time = jnp.concatenate([node_attrs_onehot, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
-        assert node_attrs_and_time.shape == (self.n_nodes, self.num_species + self.time_embedding_dim)
-
 
         lengths_0 = lengths
         positions_0 = positions
