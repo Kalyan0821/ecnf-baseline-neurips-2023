@@ -26,17 +26,18 @@ def run(cfg: DictConfig):
     if local:
         cfg.logger = DictConfig({"list_logger": None})
         cfg.training.save = False
-        cfg.flow.base_scale = 2.
         cfg.training.batch_size = 8
         cfg.training.eval_batch_size = 9
-        cfg.training.n_training_iter = 10
+        cfg.training.plot_batch_size = 16
         cfg.training.train_set_size = 80
         cfg.training.test_set_size = 80
-        cfg.training.plot_batch_size = 16
+
         cfg.flow.network.mlp_units = (16,)
-        cfg.flow.network.n_blocks_egnn = 2
         cfg.flow.network.n_invariant_feat_hidden = 8
         cfg.flow.network.time_embedding_dim = 6
+        cfg.training.n_training_iter = 10
+        cfg.flow.base_scale = 2.
+        cfg.flow.network.n_blocks_egnn = 2
 
     train_config = setup_training(
         cfg,

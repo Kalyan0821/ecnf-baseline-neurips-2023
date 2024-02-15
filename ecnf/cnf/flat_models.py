@@ -17,6 +17,8 @@ def get_timestep_embedding(timesteps: chex.Array, embedding_dim: int):
     timesteps = timesteps * 1000
 
     half_dim = embedding_dim // 2
+    assert half_dim > 1
+    
     emb = jnp.log(10_000) / (half_dim - 1)
     emb = jnp.exp(jnp.arange(half_dim) * -emb)
     emb = timesteps[:, None] * emb[None, :]
