@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+from ecnf.utils.numerical import safe_norm
 
 
 def get_edge_vectors_and_lengths(positions,   # (n_nodes, dim)
@@ -8,7 +9,7 @@ def get_edge_vectors_and_lengths(positions,   # (n_nodes, dim)
                                  eps=1e-9):
     senders, receivers = edge_index
     vectors = positions[receivers] - positions[senders] + shifts  # (n_edges, dim)
-    lengths = jnp.linalg.norm(vectors, axis=-1, keepdims=True)  # (n_edges, 1)
+    lengths = safe_norm(vectors, axis=-1, keepdims=True)  # (n_edges, 1)
     if normalize:
         vectors_normed = vectors / (lengths + eps)
         return vectors_normed, lengths
