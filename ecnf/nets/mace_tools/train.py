@@ -35,7 +35,6 @@ def train(
     logging.info("Started training")
 
     @partial(jax.pmap, in_axes=(None, 0), out_axes=0)
-    # @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
     def grad_fn(params, graph: jraph.GraphsTuple):
         # graph is assumed to be padded by jraph.pad_with_graphs
         mask = jraph.get_graph_padding_mask(graph)  # [n_graphs,]

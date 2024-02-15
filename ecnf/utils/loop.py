@@ -119,6 +119,8 @@ def run_training(config: TrainConfig):
 
     pbar = tqdm(range(start_iter, config.n_iteration))
 
+    # exit()
+
     print("\n\nStarting training loop ...")
     for iteration in pbar:
         state, info = config.update_state(state)
