@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import sys
 sys.path.append("./")
 from ecnf.nets.mace_diffusion.macegnn import MACEDiffusionAdapted
-from ecnf.utils.test import assert_function_is_equivariant
+from ecnf.utils.test import assert_function_is_rotation_equivariant, assert_function_is_translation_invariant, assert_function_is_translation_equivariant
 
 
 if __name__ == '__main__':
@@ -16,11 +16,8 @@ if __name__ == '__main__':
     r_max = 5.0
     num_interactions = 2
     num_species = 1
-    n_nodes = 4
     graph_type = "fc"
     avg_num_neighbors = None
-
-    key = jax.random.PRNGKey(0)
 
     net = MACEDiffusionAdapted(dim=dim,
                                MLP_irreps=readout_mlp_irreps,
@@ -33,15 +30,30 @@ if __name__ == '__main__':
                                avg_num_neighbors=avg_num_neighbors,
                                )
 
-    dummy_pos = jnp.ones((n_nodes, dim))
-    # dummy_feat = jnp.ones((n_nodes, 2))
-    dummy_feat = jnp.ones(n_nodes, dtype=jnp.int32)
-    dummy_time_embed = jnp.ones(11)
+    key = jax.random.PRNGKey(0)
+    dummy_pos = jax.random.normal(key, (n_nodes, dim))
+    dummy_feat = jnp.ones((n_nodes,), dtype=jnp.int32)
+    dummy_time_embed = jax.random.normal(key, (11,))
 
     params = net.init(key, dummy_pos, dummy_feat, dummy_time_embed)
 
     def eq_fn(pos: chex.Array) -> chex.Array:
         return net.apply(params, pos, dummy_feat, dummy_time_embed)
 
+    try:
+        assert_function_is_rotation_equivariant(equivariant_fn=eq_fn, n_nodes=n_nodes, dim=dim)
+        print("Rotation equivariance test passed")
+    except AssertionError:
+        print("Rotation equivariance test failed")
 
-    assert_function_is_equivariant(equivariant_fn=eq_fn, n_nodes=n_nodes, dim=dim)
+    try:
+        assert_function_is_translation_invariant(equivariant_fn=eq_fn, n_nodes=n_nodes, dim=dim)
+        print("Translation invariance test passed")
+    except AssertionError:
+        print("Translation invariance test failed")
+
+    try:
+        assert_function_is_translation_equivariant(equivariant_fn=eq_fn, n_nodes=n_nodes, dim=dim)
+        print("Translation equivariance test passed")
+    except AssertionError:
+        print("Translation equivariance test failed")
