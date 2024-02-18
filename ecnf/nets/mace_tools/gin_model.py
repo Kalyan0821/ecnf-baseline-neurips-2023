@@ -84,14 +84,14 @@ class LinearMassEmbedding(hk.Module):
 def model(
     *,
     dim: int = 3,  # 2 or 3
-    output_irreps: e3nn.Irreps = None,  # "1o", or "0e + 1o"
+    output_irreps: e3nn.Irreps = "1o",  # "1o", or "0e + 1o"
     r_max: float,
     num_interactions: int = 2,
-    train_graphs: List[jraph.GraphsTuple] = None,
+    train_graphs: List[jraph.GraphsTuple] = None,  # TODO: get this
     num_species: int = None,
     n_nodes: int = None,
     avg_num_neighbors: float = "average",
-    output_mode: str = "sum",  # "sum" or "last"
+    output_mode: str = "last",  # "sum" or "last"
     
     avg_r_min: float = None,
     path_normalization="path",

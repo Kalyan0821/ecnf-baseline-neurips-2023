@@ -87,17 +87,14 @@ class FlatMACE(nn.Module):
     n_features: int
     time_embedding_dim: int
     # mace specific
-    output_irreps: e3nn.Irreps
     readout_mlp_irreps: e3nn.Irreps
     hidden_irreps: e3nn.Irreps
     r_max: float
     num_interactions: int
-    epsilon: float
-    train_graphs: List[jraph.GraphsTuple]
     num_species: int
     graph_type: str
     avg_num_neighbors: float
-    output_mode: str
+    max_ell: int
 
     @nn.compact
     def __call__(self,
@@ -114,18 +111,15 @@ class FlatMACE(nn.Module):
                                                            skip_node_features=True)
         
         net = MACEAdapted(dim=self.dim,
-                          output_irreps=self.output_irreps,
                           readout_mlp_irreps=self.readout_mlp_irreps,
                           hidden_irreps=self.hidden_irreps,
                           r_max=self.r_max,
                           num_interactions=self.num_interactions,
-                          epsilon=self.epsilon,
-                          train_graphs=self.train_graphs,
                           num_species=self.num_species,
                           n_nodes=self.n_nodes,
                           graph_type=self.graph_type,
                           avg_num_neighbors=self.avg_num_neighbors,
-                          output_mode=self.output_mode,
+                          max_ell=self.max_ell,
                           )
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
@@ -147,11 +141,11 @@ class FlatMACEDiffusion(nn.Module):
     # mace specific
     readout_mlp_irreps: e3nn.Irreps
     hidden_irreps: e3nn.Irreps
-    r_max: float
     num_interactions: int
     num_species: int
     graph_type: str
     avg_num_neighbors: float
+    max_ell: int
 
     @nn.compact
     def __call__(self,
@@ -170,12 +164,12 @@ class FlatMACEDiffusion(nn.Module):
         net = MACEDiffusionAdapted(dim=self.dim,
                                    MLP_irreps=self.readout_mlp_irreps,
                                    hidden_irreps=self.hidden_irreps,
-                                   r_max=self.r_max,
                                    num_interactions=self.num_interactions,
                                    num_species=self.num_species,
                                    n_nodes=self.n_nodes,
                                    graph_type=self.graph_type,
                                    avg_num_neighbors=self.avg_num_neighbors,
+                                   max_ell=self.max_ell,
                                    )
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 

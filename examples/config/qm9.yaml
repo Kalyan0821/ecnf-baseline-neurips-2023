@@ -5,24 +5,20 @@ hydra:
 flow:
   sigma_min: 0.000001
   base_scale: 2.
+
   network:
-    # type: egnn
-    # type: mace
-    type: mace_diffusion
-    mlp_units: [256, 256, 256, 256]
-    n_blocks_egnn: 5
-    n_invariant_feat_hidden: 32
     time_embedding_dim: 8
+    egnn:
+      n_invariant_feat_hidden: 32
+      n_blocks_egnn: 5
+      mlp_units: [256, 256, 256, 256]
     mace:
-      output_irreps: 1o  # or 1o / 0e + 1o
       readout_mlp_irreps: 16x0e + 16x1o
       hidden_irreps: 256x0e + 256x1o
-      r_max: 5.0  # Angstroms ?
       num_interactions: 2
-      epsilon: 0.4
       graph_type: fc  # fc / nbh / mace
       avg_num_neighbors: null  # null / average
-      output_mode: last
+      max_ell: 3  # or 5
 
 task: qm9
 

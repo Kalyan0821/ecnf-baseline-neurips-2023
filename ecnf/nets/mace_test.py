@@ -11,31 +11,25 @@ from ecnf.utils.test import assert_function_is_rotation_equivariant, assert_func
 if __name__ == '__main__':
     n_nodes = 5
     dim = 3
-    output_irreps = "0e + 1o"
     readout_mlp_irreps = "16x0e + 16x1o"
     hidden_irreps = "256x0e + 256x1o"
     r_max = 5.0
     num_interactions = 2
-    epsilon = 0.4
-    train_graphs=None
     num_species = 1
     graph_type = "fc"
     avg_num_neighbors = None
-    output_mode = "last"
+    max_ell = 3
 
     net = MACEAdapted(dim=dim,
-                      output_irreps=output_irreps,
                       readout_mlp_irreps=readout_mlp_irreps,
                       hidden_irreps=hidden_irreps,
                       r_max=r_max,
                       num_interactions=num_interactions,
-                      epsilon=epsilon,
-                      train_graphs=train_graphs,
                       num_species=num_species,
                       n_nodes=n_nodes,
                       graph_type=graph_type,
                       avg_num_neighbors=avg_num_neighbors,
-                      output_mode=output_mode
+                      max_ell=max_ell,
                     )
 
     key = jax.random.PRNGKey(0)

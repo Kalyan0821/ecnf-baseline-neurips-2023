@@ -8,7 +8,7 @@ import jax
 A025582 = [0, 1, 3, 7, 12, 20, 30, 44, 65, 80, 96, 122, 147, 181, 203, 251, 289]
 
 
-class SymmetricContraction(nn.Module):
+class SymmetricContractionFlax(nn.Module):
     correlation: int
     keep_irrep_out: Set[e3nn.Irrep]
     num_species: int
@@ -18,7 +18,6 @@ class SymmetricContraction(nn.Module):
 
     def setup(self):
         grad_norm = self.gradient_normalization
-        keep_ir_out = self.keep_irrep_out
 
         if grad_norm is None:
             grad_norm = e3nn.config("gradient_normalization")
@@ -26,11 +25,9 @@ class SymmetricContraction(nn.Module):
             grad_norm = {"element": 0.0, "path": 1.0}[
                 grad_norm
             ]
-        if isinstance(keep_ir_out, str):
-            keep_ir_out = e3nn.Irreps(keep_ir_out)
-            assert all(mul == 1 for mul, _ in keep_ir_out)
-
         self.grad_norm = grad_norm
+
+        keep_ir_out = e3nn.Irreps(self.keep_irrep_out)
         self.keep_ir_out = {e3nn.Irrep(ir) for ir in keep_ir_out}
 
     @nn.compact
@@ -72,17 +69,6 @@ class SymmetricContraction(nn.Module):
                 for (mul, ir_out), u in zip(U.irreps, U.list):
                     u = u.astype(x_.dtype)
                     # u: ndarray [(irreps_x.dim)^order, multiplicity, ir_out.dim]
-
-                    # w = hk.get_parameter(
-                    #     # f"w{order}_{ir_out}",
-                    #     # (self.num_species, mul, input.shape[0]),
-                    #     dtype=jnp.float32,
-                    #     # init=hk.initializers.RandomNormal(
-                    #         # stddev=(mul**-0.5) ** (1.0 - self.grad_norm)
-                    #     # ),
-                    # )[
-                    #     index
-                    # ]  # [multiplicity, num_features]
 
                     w = self.param(f"w{order}_{ir_out}", 
                                    nn.initializers.normal(stddev=(mul**-0.5) ** (1.0-self.grad_norm)), 

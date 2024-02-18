@@ -117,26 +117,24 @@ def setup_training(
 
     n_nodes, dim = train_data_.positions.shape[1:]
 
-    cnf = build_cnf(dim=dim,
-                    n_frames=n_nodes,
+    cnf = build_cnf(n_nodes=n_nodes,
+                    dim=dim,
                     sigma_min=cfg.flow.sigma_min,
                     base_scale=cfg.flow.base_scale,
-                    n_blocks_egnn=cfg.flow.network.n_blocks_egnn,
-                    mlp_units=cfg.flow.network.mlp_units,
-                    n_invariant_feat_hidden=cfg.flow.network.n_invariant_feat_hidden,
-                    time_embedding_dim=cfg.flow.network.time_embedding_dim,
+                    model_name=cfg.model_name,
                     n_features=train_features_flat.max() + 1,
-                    model_name=cfg.flow.network.type,
+                    time_embedding_dim=cfg.flow.network.time_embedding_dim,
+                    # egnn specific
+                    n_invariant_feat_hidden=cfg.flow.network.egnn.n_invariant_feat_hidden,
+                    n_blocks_egnn=cfg.flow.network.egnn.n_blocks_egnn,
+                    mlp_units=cfg.flow.network.egnn.mlp_units,
                     # mace specific
-                    output_irreps=cfg.flow.network.mace.output_irreps,
                     readout_mlp_irreps=cfg.flow.network.mace.readout_mlp_irreps,
                     hidden_irreps=cfg.flow.network.mace.hidden_irreps,
-                    r_max=cfg.flow.network.mace.r_max,
                     num_interactions=cfg.flow.network.mace.num_interactions,
-                    epsilon=cfg.flow.network.mace.epsilon,
                     graph_type=cfg.flow.network.mace.graph_type,
                     avg_num_neighbors=cfg.flow.network.mace.avg_num_neighbors,
-                    output_mode=cfg.flow.network.mace.output_mode
+                    max_ell=cfg.flow.network.mace.max_ell,
                     )
     
     def init_state(key: chex.PRNGKey) -> TrainingState:
@@ -276,7 +274,7 @@ def setup_training(
         eval_and_plot_fn=eval_and_plot,
         save=cfg.training.save,
         save_dir=save_path,
-        model_name=cfg.flow.network.type,
+        model_name=cfg.model_name,
         task=cfg.task)
 
     return train_config

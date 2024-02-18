@@ -10,7 +10,11 @@ def tp_out_irreps_with_instructions(
     irreps2: e3nn.Irreps, 
     target_irreps: e3nn.Irreps
 ) -> Tuple[e3nn.Irreps, List]:
-    
+
+    irreps1 = e3nn.Irreps(irreps1)
+    irreps2 = e3nn.Irreps(irreps2)
+    target_irreps = e3nn.Irreps(target_irreps)
+
     trainable = True
 
     # Collect possible irreps and their instructions
@@ -39,13 +43,17 @@ def tp_out_irreps_with_instructions(
 
 
 def reshape_irreps(tensor: chex.Array, irreps: e3nn.Irreps) -> chex.Array:
+    irreps = e3nn.Irreps(irreps)
+    
     ix = 0
     out = []
     batch, _ = tensor.shape
     for mul, ir in irreps:
         d = ir.dim
-        field = tensor[:, ix : ix + mul * d]  # [batch, sample, mul * repr]
+        field = tensor[:, ix : ix + mul * d]  # (batch=n_nodes, mul * repr)
         ix += mul * d
-        field = field.reshape((batch, mul, d))
-        out.append(field)
+        field_array = field.array.reshape((batch, mul, d))
+        field_IrrepsArray = e3nn.IrrepsArray(ir, field_array)
+        out.append(field_IrrepsArray)
+
     return e3nn.concatenate(out, axis=-1)

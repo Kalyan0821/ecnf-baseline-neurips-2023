@@ -23,17 +23,18 @@ class MACEDiffusionAdapted(nn.Module):
     dim: int
     MLP_irreps: e3nn.Irreps
     hidden_irreps: e3nn.Irreps
-    r_max: float
     num_interactions: int
     num_species: int  # earlier, num_elements
     n_nodes: int
     graph_type: str
     avg_num_neighbors: float
+    max_ell: int  # 5 from Laurence's implementation (earlier, 3)
+    r_max: float = None  # currently not used
 
+    variance_scaling_init: float = 0.001
     normalization_factor: int = 1
-    max_ell: int = 3
     correlation: int = 3
-    train_graphs: List[jraph.GraphsTuple] = None
+    train_graphs: List[jraph.GraphsTuple] = None  # TODO: get this
 
     def setup(self):
         assert self.dim in [2, 3]
@@ -46,10 +47,11 @@ class MACEDiffusionAdapted(nn.Module):
         else:
             avg_num_neighbors = self.avg_num_neighbors
             
-        assert avg_num_neighbors > 0
+        assert avg_num_neighbors >= 1
 
-        MLP_irreps = e3nn.Irreps(self.MLP_irreps) if isinstance(self.MLP_irreps, str) else self.MLP_irreps
-        hidden_irreps = e3nn.Irreps(self.hidden_irreps) if isinstance(self.hidden_irreps, str) else self.hidden_irreps
+        sh_irreps = e3nn.Irreps.spherical_harmonics(self.max_ell)
+        MLP_irreps = e3nn.Irreps(self.MLP_irreps)
+        hidden_irreps = e3nn.Irreps(self.hidden_irreps)
 
         hidden_dims = hidden_irreps.count(e3nn.Irrep(0, 1))  # n_scalars
         self.embedding = nn.Dense(features=hidden_dims)
@@ -63,17 +65,21 @@ class MACEDiffusionAdapted(nn.Module):
             
             mace_layers.append(
                 MACE_layer(max_ell=self.max_ell,
+                           sh_irreps=sh_irreps,
                            avg_num_neighbors=avg_num_neighbors,
                            correlation=self.correlation,
                            num_species=self.num_species,
                            node_feats_irreps=node_feats_irreps,
                            hidden_irreps=hidden_irreps,
                            MLP_irreps=MLP_irreps,
-                           r_max=self.r_max)
+                           variance_scaling_init=self.variance_scaling_init,
+                           )
             )
             
-        self.mace_layers = mace_layers            
+        self.mace_layers = mace_layers
 
+        self.final_scaling = self.param("final_scaling", nn.initializers.ones_init(), ())
+         
 
     def __call__(self,
                  positions: chex.Array,        # (B, n_nodes, dim) 
@@ -126,10 +132,10 @@ class MACEDiffusionAdapted(nn.Module):
         
         node_attrs_and_time = jnp.concatenate([node_attrs_onehot, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
 
-        lengths_0 = lengths
-        positions_0 = positions
+        lengths_0 = lengths.copy()
+        positions_0 = positions.copy()
         h = self.embedding(node_attrs_and_time)  # (n_species + time_embedding_dim) => n_hidden_scalars
-        node_feats = h
+        node_feats = h.copy()
 
         # Many body interactions
         for mace_layer in self.mace_layers:
@@ -151,63 +157,68 @@ class MACEDiffusionAdapted(nn.Module):
 
         predicted_noise_positions = predicted_noise_positions[:, :self.dim]
 
+        predicted_noise_positions = predicted_noise_positions * self.final_scaling
+
         return predicted_noise_positions
 
 
 class MACE_layer(nn.Module):
     max_ell: int
+    sh_irreps: e3nn.Irreps
     avg_num_neighbors: float
     correlation: int
     num_species: int
     hidden_irreps: e3nn.Irreps
     node_feats_irreps: e3nn.Irreps
     MLP_irreps: e3nn.Irreps
-    r_max: Optional[float] = None
+    variance_scaling_init: float
 
     def setup(self):
         node_attr_irreps = e3nn.Irreps([(self.num_species, (0, 1))])
-        num_features = self.hidden_irreps.count(e3nn.Irrep(0, 1))
+        node_feats_irreps = e3nn.Irreps(self.node_feats_irreps)
+        sh_irreps = e3nn.Irreps(self.sh_irreps)
+        hidden_irreps = e3nn.Irreps(self.hidden_irreps)
+        num_features = hidden_irreps.count(e3nn.Irrep(0, 1))
         edge_feats_irreps = e3nn.Irreps([(num_features, (0, 1))])
-        sh_irreps = e3nn.Irreps.spherical_harmonics(self.max_ell)
         interaction_irreps = (sh_irreps * num_features).sort()[0].simplify()
-        # self.spherical_harmonics = o3.SphericalHarmonics(
-        #     sh_irreps, normalize=True, normalization="component"
-        # )
-        self.spherical_harmonics = lambda x: e3nn.spherical_harmonics(irreps_out=sh_irreps,
-                                                                      input=x,
-                                                                      normalize=True,
-                                                                      normalization="component")
+        MLP_irreps = e3nn.Irreps(self.MLP_irreps)
         
         self.interaction = DiffusionInteractionBlock(
             node_attrs_irreps=node_attr_irreps,
-            node_feats_irreps=self.node_feats_irreps,
+            node_feats_irreps=node_feats_irreps,
             edge_attrs_irreps=sh_irreps,
             edge_feats_irreps=edge_feats_irreps,
             target_irreps=interaction_irreps,
-            hidden_irreps=self.hidden_irreps,
+            hidden_irreps=hidden_irreps,
             avg_num_neighbors=self.avg_num_neighbors,
-            r_max=self.r_max,
+            variance_scaling_init=self.variance_scaling_init,
         )
 
         self.product = EquivariantProductBasisBlock(
-            node_feats_irreps=self.interaction.target_irreps,
-            target_irreps=self.hidden_irreps,
+            node_feats_irreps=e3nn.Irreps(self.interaction.target_irreps),
+            target_irreps=hidden_irreps,
             correlation=self.correlation,
             num_species=self.num_species,
-
             element_dependent=False,
             use_sc=False,
         )
 
         self.readout = NonLinearReadoutBlock(
-            self.hidden_irreps, self.MLP_irreps, nn.activation.silu, num_features
+            irreps_in=hidden_irreps, 
+            MLP_irreps=MLP_irreps, 
+            gate=nn.activation.silu, 
+            num_species=num_features
         )
 
 
     def __call__(self, vectors, lengths, node_feats, node_attrs, edge_feats, edge_index):
+        vectors_sh = e3nn.spherical_harmonics(irreps_out=self.sh_irreps,
+                                              input=vectors,
+                                              normalize=True,
+                                              normalization="component")
         node_feats, sc = self.interaction(
             node_feats=node_feats,
-            edge_attrs=self.spherical_harmonics(vectors),
+            edge_attrs=vectors_sh,
             edge_feats=edge_feats,
             lengths=lengths,
             edge_index=edge_index,

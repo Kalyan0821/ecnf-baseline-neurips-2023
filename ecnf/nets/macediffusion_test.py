@@ -13,21 +13,21 @@ if __name__ == '__main__':
     dim = 3
     readout_mlp_irreps = "16x0e + 16x1o"
     hidden_irreps = "256x0e + 256x1o"
-    r_max = 5.0
     num_interactions = 2
-    num_species = 1
+    num_species = 3
     graph_type = "fc"
     avg_num_neighbors = None
+    max_ell = 5
 
     net = MACEDiffusionAdapted(dim=dim,
                                MLP_irreps=readout_mlp_irreps,
                                hidden_irreps=hidden_irreps,
-                               r_max=r_max,
                                num_interactions=num_interactions,
                                num_species=num_species,
                                n_nodes=n_nodes,
                                graph_type=graph_type,
                                avg_num_neighbors=avg_num_neighbors,
+                               max_ell=max_ell,
                                )
 
     key = jax.random.PRNGKey(0)

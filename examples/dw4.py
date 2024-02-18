@@ -11,7 +11,10 @@ from ecnf.targets.data import load_dw4, FullGraphSample
 from ecnf.targets.target_energy.double_well import log_prob_fn
 from ecnf.setup_training import setup_training
 
-
+"""
+To run: 
+CUDA_VISIBLE_DEVICES=0 python examples/dw4.py +model_name=egnn
+"""
 
 def load_dataset(train_set_size: int, valid_set_size: Optional[int], final_run: bool) -> Tuple[FullGraphSample, FullGraphSample]:
     train, valid, test = load_dw4(train_set_size)
