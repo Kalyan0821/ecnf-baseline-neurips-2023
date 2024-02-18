@@ -91,7 +91,7 @@ def model(
     num_species: int = None,
     n_nodes: int = None,
     avg_num_neighbors: float = "average",
-    output_mode: str = "sum",  # "sum" or "last
+    output_mode: str = "sum",  # "sum" or "last"
     
     avg_r_min: float = None,
     path_normalization="path",

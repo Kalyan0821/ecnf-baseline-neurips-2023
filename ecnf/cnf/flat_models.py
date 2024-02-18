@@ -7,7 +7,7 @@ from ecnf.nets.egnn import EGNN
 from ecnf.nets.macegnn_adapted import MACEAdapted
 from ecnf.nets.mace_diffusion.macegnn import MACEDiffusionAdapted
 import jraph
-import jax
+
 
 def get_timestep_embedding(timesteps: chex.Array, embedding_dim: int):
     """Build sinusoidal embeddings (from Fairseq)."""
@@ -133,6 +133,8 @@ class FlatMACE(nn.Module):
                       time_embedding  # (B, time_embedding_dim)
                       )  # (B, n_nodes, dim)
         
+        # jax.debug.print("{}", vectors.mean())
+
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)
 

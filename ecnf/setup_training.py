@@ -143,7 +143,7 @@ def setup_training(
         params = cnf.init(key, train_pos_flat[:2], jnp.zeros(2), train_features_flat[:2])
         opt_state = optimizer.init(params=params)
 
-        ema_params = params if cfg.training.use_ema else jnp.array(None)
+        ema_params = params if cfg.training.use_ema else None
         state = TrainingState(params=params, opt_state=opt_state, key=key,
                               ema_params=ema_params)
         return state
