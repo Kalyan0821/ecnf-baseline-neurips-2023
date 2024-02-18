@@ -57,7 +57,7 @@ def random_rotation_matrix(key: chex.PRNGKey, dim: int) -> chex.Array:
     return rotation_matrix
 
 
-def assert_function_is_equivariant(
+def assert_function_is_rotation_equivariant(
         equivariant_fn: Callable[[chex.Array], chex.Array],
         n_nodes: int,
         dim: int = 3,
@@ -67,11 +67,72 @@ def assert_function_is_equivariant(
     input = jax.random.normal(key1, (n_nodes, dim))
     rotation = random_rotation_matrix(key2, dim)
 
-    input_g = (rotation @ input.T).T
+    print("x:", input.sum())
 
     out = equivariant_fn(input)
-    out_then_g = (rotation @ out.T).T
+    print("f(x):", out.sum())
+
+    input_g = (rotation @ input.T).T
+    print("T(x):", input_g.sum())
+
     g_then_out = equivariant_fn(input_g)
+    print("f(T(x)):", g_then_out.sum())
+
+    out_then_g = (rotation @ out.T).T
+    print("T(f(x)):", out_then_g.sum())
 
     chex.assert_trees_all_close(out_then_g, g_then_out, atol=1e-6, rtol=1e-6)
 
+
+def assert_function_is_translation_invariant(
+        equivariant_fn: Callable[[chex.Array], chex.Array],
+        n_nodes: int,
+        dim: int = 3,
+        key: chex.PRNGKey = jax.random.PRNGKey(42)
+) -> None:
+    key1, key2 = jax.random.split(key)
+    input = jax.random.normal(key1, (n_nodes, dim))
+    translation = jax.random.normal(key2, (dim,))
+
+    print("x:", input.sum())
+
+    out = equivariant_fn(input)
+    print("f(x):", out.sum())
+
+    input_g = input + translation
+    print("T(x):", input_g.sum())
+
+    g_then_out = equivariant_fn(input_g)
+    print("f(T(x)):", g_then_out.sum())
+
+    out_then_g = out
+    print("T(f(x)):", out_then_g.sum())
+
+    chex.assert_trees_all_close(out_then_g, g_then_out, atol=1e-6, rtol=1e-6)
+
+
+def assert_function_is_translation_equivariant(
+        equivariant_fn: Callable[[chex.Array], chex.Array],
+        n_nodes: int,
+        dim: int = 3,
+        key: chex.PRNGKey = jax.random.PRNGKey(42)
+) -> None:
+    key1, key2 = jax.random.split(key)
+    input = jax.random.normal(key1, (n_nodes, dim))
+    translation = jax.random.normal(key2, (dim,))
+
+    print("x:", input.sum())
+
+    out = equivariant_fn(input)
+    print("f(x):", out.sum())
+
+    input_g = input + translation
+    print("T(x):", input_g.sum())
+
+    g_then_out = equivariant_fn(input_g)
+    print("f(T(x)):", g_then_out.sum())
+
+    out_then_g = out + translation
+    print("T(f(x)):", out_then_g.sum())
+
+    chex.assert_trees_all_close(out_then_g, g_then_out, atol=1e-6, rtol=1e-6)

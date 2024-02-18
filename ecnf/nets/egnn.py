@@ -12,7 +12,6 @@ from ecnf.utils.numerical import safe_norm
 from ecnf.nets.mlp import StableMLP, MLP
 
 
-
 class EGCL(nn.Module):
     """A version of EGCL coded only with haiku (not e3nn) so works for arbitary dimension of inputs.
 
@@ -141,6 +140,7 @@ class EGNN(nn.Module):
         else:
             return self.call_single(positions, node_features, global_features)
 
+
     def call_single(self,
         positions: chex.Array,        # (n_nodes, dim)
         node_features: chex.Array,    # (n_nodes, n_invariant_feat_hidden)
@@ -184,7 +184,7 @@ class EGNN(nn.Module):
         if self.residual_x:
             vectors = vectors - initial_vectors
 
-        vectors = vectors - positions.mean(axis=0, keepdims=True)  # Zero-CoM.
+        vectors = vectors - vectors.mean(axis=0, keepdims=True)  # Zero-CoM.
 
         vectors = vectors * self.param("final_scaling", nn.initializers.ones_init(), ())
 

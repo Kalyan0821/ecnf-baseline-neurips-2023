@@ -77,8 +77,6 @@ class MACEAdapted(nn.Module):
                                   time_embedding=global_features)
         chex.assert_shape(vectors, (self.n_nodes, self.dim))
 
-        vectors = vectors - positions
-
         vectors = vectors * self.final_scaling
 
         return vectors
