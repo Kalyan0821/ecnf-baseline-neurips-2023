@@ -53,7 +53,7 @@ class FlatEGNN(nn.Module):
     n_invariant_feat_hidden: int
     time_embedding_dim: int
     # egnn specific
-    n_blocks_egnn: int
+    n_blocks: int
     mlp_units: Sequence[int]
 
     @nn.compact
@@ -67,7 +67,7 @@ class FlatEGNN(nn.Module):
         (positions, node_features, time_embedding) = reshape_and_embed(positions, node_features, time,
                                                                        self.n_nodes, self.dim, self.n_features, self.n_invariant_feat_hidden, self.time_embedding_dim)
 
-        net = EGNN(n_blocks=self.n_blocks_egnn,
+        net = EGNN(n_blocks=self.n_blocks,
                    mlp_units=self.mlp_units,
                    n_invariant_feat_hidden=self.n_invariant_feat_hidden,
                    )

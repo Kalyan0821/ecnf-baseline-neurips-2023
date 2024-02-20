@@ -4,3 +4,4 @@ outputs
 __pycache__
 wandb
 qm9_download_data
+.vscode

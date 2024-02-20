@@ -91,7 +91,7 @@ if __name__ == '__main__':
                     n_frames=n_nodes,
                     sigma_min=cfg.flow.sigma_min,
                     base_scale=cfg.flow.base_scale,
-                    n_blocks_egnn=cfg.flow.network.n_blocks_egnn,
+                    n_blocks=cfg.flow.network.egnn.n_blocks,
                     mlp_units=cfg.flow.network.mlp_units,
                     n_invariant_feat_hidden=cfg.flow.network.n_invariant_feat_hidden,
                     time_embedding_dim=cfg.flow.network.time_embedding_dim

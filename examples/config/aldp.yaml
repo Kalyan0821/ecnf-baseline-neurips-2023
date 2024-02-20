@@ -13,7 +13,7 @@ flow:
   network:
     type: egnn
     mlp_units: [64, 64] #  [256, 256, 256, 256]
-    n_blocks_egnn: 3 # 5
+    n_blocks: 3 # 5
     n_invariant_feat_hidden: 32
     time_embedding_dim: 8
 

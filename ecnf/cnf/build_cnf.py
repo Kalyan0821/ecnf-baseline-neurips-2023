@@ -22,7 +22,7 @@ def build_cnf(
         time_embedding_dim: int,
         # egnn specific
         n_invariant_feat_hidden: int,
-        n_blocks_egnn: int,
+        n_blocks: int,
         mlp_units: Sequence[int],
         # mace specific
         readout_mlp_irreps: str,
@@ -59,7 +59,7 @@ def build_cnf(
                        n_features=n_features,
                        n_invariant_feat_hidden=n_invariant_feat_hidden,
                        time_embedding_dim=time_embedding_dim,
-                       n_blocks_egnn=n_blocks_egnn,
+                       n_blocks=n_blocks,
                        mlp_units=mlp_units
         )
     elif model_name == "mace":

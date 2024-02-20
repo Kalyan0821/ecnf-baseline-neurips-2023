@@ -1,4 +1,3 @@
-import jax.numpy as jnp
 from ecnf.utils.numerical import safe_norm
 
 

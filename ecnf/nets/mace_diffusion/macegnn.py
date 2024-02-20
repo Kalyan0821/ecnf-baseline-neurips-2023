@@ -122,7 +122,7 @@ class MACEDiffusionAdapted(nn.Module):
             
 
         # convert atomic numbers to one-hot
-        node_attrs = node_features
+        node_attrs = node_features.copy()
         node_attrs_onehot = jax.nn.one_hot(node_features-1, self.num_species) / self.normalization_factor  # (n_nodes, n_species)
         assert node_attrs_onehot.shape == (self.n_nodes, self.num_species)
 
@@ -132,13 +132,14 @@ class MACEDiffusionAdapted(nn.Module):
         
         node_attrs_and_time = jnp.concatenate([node_attrs_onehot, time_embedding], axis=-1)  # (n_nodes, n_species + time_embedding_dim)
 
-        lengths_0 = lengths.copy()
+        lengths_0 = lengths
         positions_0 = positions.copy()
         h = self.embedding(node_attrs_and_time)  # (n_species + time_embedding_dim) => n_hidden_scalars
-        node_feats = h.copy()
+        node_feats = h
 
         # Many body interactions
         for mace_layer in self.mace_layers:
+            # (n_nodes, n_hidden_scalars), (n_nodes, 3), (n_nodes, hidden_irreps.dim)
             many_body_scalars, many_body_vectors, node_feats = mace_layer(
                 vectors=vectors,
                 lengths=lengths_0,
@@ -207,13 +208,13 @@ class MACE_layer(nn.Module):
             irreps_in=hidden_irreps, 
             MLP_irreps=MLP_irreps, 
             gate=nn.activation.silu, 
-            num_species=num_features
+            num_species=num_features,
         )
 
 
     def __call__(self, vectors, lengths, node_feats, node_attrs, edge_feats, edge_index):
-        vectors_sh = e3nn.spherical_harmonics(irreps_out=self.sh_irreps,
-                                              input=vectors,
+        vectors_sh = e3nn.spherical_harmonics(input=vectors,
+                                              irreps_out=self.sh_irreps,
                                               normalize=True,
                                               normalization="component")
         node_feats, sc = self.interaction(
@@ -224,7 +225,7 @@ class MACE_layer(nn.Module):
             edge_index=edge_index,
         )
         node_feats = self.product(node_feats=node_feats, node_attrs=node_attrs, sc=sc)  
-        node_out = self.readout(node_feats)  # (n_nodes, n_feats x 0e + 1 x 1o)
+        node_out = self.readout(node_feats)  # (n_nodes, n_featsx0e + 1o)
         
         return node_out[:, :-3], node_out[:, -3:], node_feats
 

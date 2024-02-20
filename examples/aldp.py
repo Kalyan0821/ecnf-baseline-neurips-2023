@@ -35,7 +35,7 @@ def run(cfg: DictConfig):
         cfg.training.test_set_size = 8
         cfg.training.plot_batch_size = 16
         cfg.flow.network.mlp_units = (4,)
-        cfg.flow.network.n_blocks_egnn = 1
+        cfg.flow.network.egnn.n_blocks = 1
         cfg.flow.network.n_invariant_feat_hidden = 8
         cfg.flow.network.time_embedding_dim = 6
 

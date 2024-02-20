@@ -35,7 +35,7 @@ def run(cfg: DictConfig):
         cfg.flow.network.n_invariant_feat_hidden = 8
         cfg.flow.network.time_embedding_dim = 6
         cfg.training.n_training_iter = 10
-        cfg.flow.network.n_blocks_egnn = 2
+        cfg.flow.network.egnn.n_blocks = 2
 
     train_config = setup_training(
         cfg,

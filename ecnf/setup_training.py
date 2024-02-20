@@ -126,7 +126,7 @@ def setup_training(
                     time_embedding_dim=cfg.flow.network.time_embedding_dim,
                     # egnn specific
                     n_invariant_feat_hidden=cfg.flow.network.egnn.n_invariant_feat_hidden,
-                    n_blocks_egnn=cfg.flow.network.egnn.n_blocks_egnn,
+                    n_blocks=cfg.flow.network.egnn.n_blocks,
                     mlp_units=cfg.flow.network.egnn.mlp_units,
                     # mace specific
                     readout_mlp_irreps=cfg.flow.network.mace.readout_mlp_irreps,

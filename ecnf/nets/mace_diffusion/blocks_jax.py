@@ -50,15 +50,13 @@ class DiffusionInteractionBlock(flax.linen.Module):
             node_feats_irreps,
             edge_attrs_irreps,
             target_irreps)
-        irreps_mid = e3nn.Irreps(irreps_mid)
-        self.irreps_mid = irreps_mid
+        irreps_mid = e3nn.Irreps(irreps_mid).simplify()
 
         layer = flax.linen.Dense(features=irreps_mid.num_irreps, 
                                  use_bias=False, 
                                  kernel_init=flax.linen.initializers.variance_scaling(scale=self.variance_scaling_init, 
                                                                                       mode="fan_avg", 
-                                                                                      distribution="uniform")
-                                 )
+                                                                                      distribution="uniform"))
         self.conv_tp_weights = flax.linen.Sequential(
                 [flax.linen.Dense(features=input_dim),
                  flax.linen.silu,
@@ -68,10 +66,10 @@ class DiffusionInteractionBlock(flax.linen.Module):
             )
 
         # Linear
-        irreps_mid = irreps_mid.simplify()
+        self.irreps_mid = irreps_mid
         self.irreps_out = target_irreps
         self.linear = e3nn.flax.Linear(irreps_in=irreps_mid,
-                                       irreps_out=self.irreps_out,
+                                       irreps_out=target_irreps,
                                        path_normalization="element")
 
     def __call__(
@@ -125,7 +123,6 @@ class EquivariantProductBasisBlock(flax.linen.Module):
         target_irreps = e3nn.Irreps(self.target_irreps)
 
         if self.use_library_contraction:  
-            print("Using existing haiku contraction...")
             symmetric_contraction = hk.transform(
                 lambda x, y: SymmetricContraction(correlation=self.correlation,
                                                   keep_irrep_out=target_irreps,
@@ -134,7 +131,6 @@ class EquivariantProductBasisBlock(flax.linen.Module):
                                             )
             symmetric_contraction = hkflax.Module(symmetric_contraction)  # convert to flax module
         else:  
-            print("Using my flax contraction...")
             symmetric_contraction = SymmetricContractionFlax(
                 correlation=self.correlation,
                 keep_irrep_out=target_irreps,
@@ -145,7 +141,7 @@ class EquivariantProductBasisBlock(flax.linen.Module):
 
         # Update linear
         self.linear = e3nn.flax.Linear(
-            irreps_in=target_irreps,
+            # irreps_in=target_irreps,
             irreps_out=target_irreps,
             path_normalization="element",
         )
@@ -171,7 +167,6 @@ class NonLinearReadoutBlock(flax.linen.Module):
     gate: Callable
     num_species: int
     positions_only: bool = False
-    charges: bool = False
 
     def setup(self):
         irreps_in = e3nn.Irreps(self.irreps_in)
@@ -179,11 +174,9 @@ class NonLinearReadoutBlock(flax.linen.Module):
 
         if self.positions_only:
             self.irreps_out = e3nn.Irreps("1x1o")
-            
-        if self.charges:
-            self.irreps_out = e3nn.Irreps(str(self.num_species + 1) + "x0e + 1x1o")
         else:
             self.irreps_out = e3nn.Irreps(str(self.num_species) + "x0e + 1x1o")
+            
         irreps_scalars = e3nn.Irreps(
             [(mul, ir) for mul, ir in self.MLP_irreps if ir.l == 0 and ir in self.irreps_out]
         )
@@ -191,16 +184,11 @@ class NonLinearReadoutBlock(flax.linen.Module):
             [(mul, ir) for mul, ir in self.MLP_irreps if ir.l > 0 and ir in self.irreps_out]
         )
         irreps_gates = e3nn.Irreps([mul, "0e"] for mul, _ in irreps_gated)
-        
-        self.equivariant_nonlin = lambda x: e3nn.gate(input=x,
-                                                      even_act=self.gate,
-                                                      odd_act=self.gate,
-                                                      even_gate_act=self.gate,
-                                                      odd_gate_act=self.gate,
-                                                      normalize_act=True,
-                                                )
-                                                      
-        self.irreps_nonlin = sum(tuple(e3nn.Irreps(irreps).simplify() for irreps in [irreps_scalars, irreps_gates, irreps_gated]), e3nn.Irreps([])).sort()[0].simplify()
+                                                              
+        self.irreps_nonlin = sum(
+            tuple(e3nn.Irreps(irreps).simplify() for irreps in [irreps_scalars, irreps_gates, irreps_gated]), 
+            e3nn.Irreps([])
+            ).sort()[0].simplify()
         self.irreps_nonlin = e3nn.Irreps(self.irreps_nonlin)
 
         self.linear_1 = e3nn.flax.Linear(irreps_in=irreps_in,
@@ -215,6 +203,11 @@ class NonLinearReadoutBlock(flax.linen.Module):
 
     def __call__(self, x: chex.Array) -> chex.Array:  # [n_nodes, irreps]
         x = self.linear_1(x)
-        x = self.equivariant_nonlin(x)
+        x = e3nn.gate(input=x,
+                      even_act=self.gate,
+                      odd_act=self.gate,
+                      even_gate_act=self.gate,
+                      odd_gate_act=self.gate,
+                      normalize_act=True)
         x = self.linear_2(x)
-        return x  # [n_nodes, 1]
+        return x
