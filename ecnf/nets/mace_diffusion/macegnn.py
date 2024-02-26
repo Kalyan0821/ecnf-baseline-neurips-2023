@@ -32,6 +32,7 @@ class MACEDiffusionAdapted(nn.Module):
     r_max: float = None  # currently not used
 
     variance_scaling_init: float = 0.001
+    scale_output: bool = False
     normalization_factor: int = 1
     correlation: int = 3
     train_graphs: List[jraph.GraphsTuple] = None  # TODO: get this
@@ -78,7 +79,7 @@ class MACEDiffusionAdapted(nn.Module):
             
         self.mace_layers = mace_layers
 
-        self.final_scaling = self.param("final_scaling", nn.initializers.ones_init(), ())
+        self.final_scaling = self.param("final_scaling", nn.initializers.ones_init(), ()) if self.scale_output else 1.0
          
 
     def __call__(self,
@@ -175,20 +176,16 @@ class MACE_layer(nn.Module):
     variance_scaling_init: float
 
     def setup(self):
-        node_attr_irreps = e3nn.Irreps([(self.num_species, (0, 1))])
         node_feats_irreps = e3nn.Irreps(self.node_feats_irreps)
         sh_irreps = e3nn.Irreps(self.sh_irreps)
         hidden_irreps = e3nn.Irreps(self.hidden_irreps)
         num_features = hidden_irreps.count(e3nn.Irrep(0, 1))
-        edge_feats_irreps = e3nn.Irreps([(num_features, (0, 1))])
         interaction_irreps = (sh_irreps * num_features).sort()[0].simplify()
         MLP_irreps = e3nn.Irreps(self.MLP_irreps)
         
         self.interaction = DiffusionInteractionBlock(
-            node_attrs_irreps=node_attr_irreps,
             node_feats_irreps=node_feats_irreps,
             edge_attrs_irreps=sh_irreps,
-            edge_feats_irreps=edge_feats_irreps,
             target_irreps=interaction_irreps,
             hidden_irreps=hidden_irreps,
             avg_num_neighbors=self.avg_num_neighbors,
@@ -200,14 +197,12 @@ class MACE_layer(nn.Module):
             target_irreps=hidden_irreps,
             correlation=self.correlation,
             num_species=self.num_species,
-            element_dependent=False,
-            use_sc=False,
         )
 
         self.readout = NonLinearReadoutBlock(
             irreps_in=hidden_irreps, 
             MLP_irreps=MLP_irreps, 
-            gate=nn.activation.silu, 
+            activation=jax.nn.silu, 
             num_species=num_features,
         )
 
@@ -216,15 +211,15 @@ class MACE_layer(nn.Module):
         vectors_sh = e3nn.spherical_harmonics(input=vectors,
                                               irreps_out=self.sh_irreps,
                                               normalize=True,
-                                              normalization="component")
-        node_feats, sc = self.interaction(
+                                            )
+        node_feats = self.interaction(
             node_feats=node_feats,
             edge_attrs=vectors_sh,
             edge_feats=edge_feats,
             lengths=lengths,
             edge_index=edge_index,
         )
-        node_feats = self.product(node_feats=node_feats, node_attrs=node_attrs, sc=sc)  
+        node_feats = self.product(node_feats=node_feats, node_attrs=node_attrs)  
         node_out = self.readout(node_feats)  # (n_nodes, n_featsx0e + 1o)
         
         return node_out[:, :-3], node_out[:, -3:], node_feats

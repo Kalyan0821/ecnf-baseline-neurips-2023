@@ -12,12 +12,12 @@ if __name__ == '__main__':
     n_nodes = 5
     dim = 3
     readout_mlp_irreps = "16x0e + 16x1o"
-    hidden_irreps = "256x0e + 256x1o"
+    hidden_irreps = "4x0e + 4x1o"
     num_interactions = 2
     num_species = 3
     graph_type = "fc"
     avg_num_neighbors = None
-    max_ell = 5
+    max_ell = 3
 
     net = MACEDiffusionAdapted(dim=dim,
                                MLP_irreps=readout_mlp_irreps,

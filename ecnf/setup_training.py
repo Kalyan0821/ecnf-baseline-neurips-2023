@@ -135,6 +135,8 @@ def setup_training(
                     graph_type=cfg.flow.network.mace.graph_type,
                     avg_num_neighbors=cfg.flow.network.mace.avg_num_neighbors,
                     max_ell=cfg.flow.network.mace.max_ell,
+                    variance_scaling_init=cfg.flow.network.mace.variance_scaling,
+                    scale_output=cfg.flow.network.mace.scale_output,
                     )
     
     def init_state(key: chex.PRNGKey) -> TrainingState:

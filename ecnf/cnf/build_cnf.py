@@ -9,7 +9,7 @@ import jax
 
 from ecnf.cnf.core import FlowMatchingCNF, optimal_transport_conditional_vf
 from ecnf.cnf.zero_com_base import FlatZeroCoMGaussian
-from ecnf.cnf.flat_models import FlatEGNN, FlatMACE, FlatMACEDiffusion
+from ecnf.cnf.flat_models import FlatEGNN, FlatMACEDiffusion
 
 
 def build_cnf(
@@ -31,6 +31,8 @@ def build_cnf(
         graph_type: str,          
         avg_num_neighbors: str,  
         max_ell: int,
+        variance_scaling_init: float,
+        scale_output: bool,
 ):
 
     scale_bijector = distrax.ScalarAffine(
@@ -74,6 +76,8 @@ def build_cnf(
                                 graph_type=graph_type,
                                 avg_num_neighbors=avg_num_neighbors,
                                 max_ell=max_ell,
+                                variance_scaling_init=variance_scaling_init,
+                                scale_output=scale_output,
         )
     else:
         raise NotImplementedError
