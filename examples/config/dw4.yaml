@@ -10,7 +10,7 @@ flow:
     time_embedding_dim: 8
     egnn:
       n_invariant_feat_hidden: 64
-      n_blocks_egnn: 3
+      n_blocks: 3
       mlp_units: [128, 128, 128]
     mace:
       readout_mlp_irreps: 16x0e + 16x1o
@@ -18,18 +18,23 @@ flow:
       num_interactions: 2
       graph_type: fc  # fc / nbh / mace
       avg_num_neighbors: null  # null / average
-      max_ell: 3  # or 5
+      max_ell: 5
+      variance_scaling: 0.001
+      scale_output: true
 
 task: dw4
 
 training:
   use_ema: false
   optimizer:
-      use_schedule: true
-      init_lr: 1e-4
+      use_schedule: true  # mace default = false
+      init_lr: 1e-4       # mace default = 0.01
       peak_lr: 1e-4
       end_lr: 0.
       n_iter_warmup: 10
+  use_fixed_step_size: false
+  save: false
+
   batch_size: 64
   seed: 0
   n_training_iter: 200
@@ -39,11 +44,9 @@ training:
   test_set_size: 1000
   eval_n_model_samples: null
   eval_exact_log_prob: true
-  use_fixed_step_size: false
   final_run: true
   n_checkpoints: 5
   n_eval: 5
-  save: true
   save_dir: ''
   save_in_wandb_dir: true
 

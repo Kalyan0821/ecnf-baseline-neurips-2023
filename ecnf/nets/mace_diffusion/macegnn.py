@@ -105,8 +105,11 @@ class MACEDiffusionAdapted(nn.Module):
         chex.assert_rank(time_embedding, 1)
         chex.assert_axis_dimension(node_features, 0, self.n_nodes)
 
-        _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)
+        _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)  # _, (senders, receivers)
         shifts = 0
+        # Copying EGNN
+        positions -= positions.mean(axis=0, keepdims=True)  # (n_nodes, dim)
+
         # get edge vectors
         vectors, lengths = get_edge_vectors_and_lengths(
             positions=positions, edge_index=edge_index, shifts=shifts)  # (n_edges, dim), (n_edges, 1)
@@ -136,7 +139,7 @@ class MACEDiffusionAdapted(nn.Module):
         lengths_0 = lengths
         positions_0 = positions.copy()
         h = self.embedding(node_attrs_and_time)  # (n_species + time_embedding_dim) => n_hidden_scalars
-        node_feats = h
+        node_feats = h.copy()
 
         # Many body interactions
         for mace_layer in self.mace_layers:
@@ -155,11 +158,12 @@ class MACEDiffusionAdapted(nn.Module):
                 positions=positions, edge_index=edge_index, shifts=shifts)
 
         # Output
-        predicted_noise_positions = (positions - positions_0)
+        predicted_noise_positions = (positions - positions_0)[:, :self.dim]
 
-        predicted_noise_positions = predicted_noise_positions[:, :self.dim]
+        # Copying EGNN
+        predicted_noise_positions -= predicted_noise_positions.mean(axis=0, keepdims=True)
 
-        predicted_noise_positions = predicted_noise_positions * self.final_scaling
+        predicted_noise_positions *= self.final_scaling
 
         return predicted_noise_positions
 

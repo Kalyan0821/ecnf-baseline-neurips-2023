@@ -6,7 +6,7 @@ import e3nn_jax as e3nn
 from ecnf.nets.egnn import EGNN
 from ecnf.nets.macegnn_adapted import MACEAdapted
 from ecnf.nets.mace_diffusion.macegnn import MACEDiffusionAdapted
-import jraph
+import jax
 
 
 def get_timestep_embedding(timesteps: chex.Array, embedding_dim: int):
@@ -65,7 +65,7 @@ class FlatEGNN(nn.Module):
         
         # (B, n_nodes, dim), (B, n_nodes, n_invariant_feat_hidden), (B, time_embedding_dim)
         (positions, node_features, time_embedding) = reshape_and_embed(positions, node_features, time,
-                                                                       self.n_nodes, self.dim, self.n_features, self.n_invariant_feat_hidden, self.time_embedding_dim)
+                                                                       self.n_nodes, self.dim, 1, self.n_invariant_feat_hidden, self.time_embedding_dim)
 
         net = EGNN(n_blocks=self.n_blocks,
                    mlp_units=self.mlp_units,
@@ -77,58 +77,8 @@ class FlatEGNN(nn.Module):
                       time_embedding  # (B, time_embedding_dim)
                       )  # (B, n_nodes, dim)
         
-        flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
-        return flat_vectors  # (B, n_nodes*dim)
-    
-
-class FlatMACE(nn.Module):
-    n_nodes: int
-    dim: int
-    n_features: int
-    time_embedding_dim: int
-    # mace specific
-    readout_mlp_irreps: e3nn.Irreps
-    hidden_irreps: e3nn.Irreps
-    r_max: float
-    num_interactions: int
-    num_species: int
-    graph_type: str
-    avg_num_neighbors: float
-    max_ell: int
-
-    @nn.compact
-    def __call__(self,
-                 positions: chex.Array,     # (B, n_nodes*dim)
-                 time: chex.Array,          # (B,)
-                 node_features: chex.Array  # (B, n_nodes*n_features)
-                 ) -> chex.Array:
-
-        assert node_features.shape[-1] == self.n_nodes
+        # jax.debug.print("{}, {}", vectors.mean(), vectors.std())
         
-        # (B, n_nodes, dim), _, (B, time_embedding_dim)
-        (positions, _, time_embedding) = reshape_and_embed(positions, None, time,
-                                                           self.n_nodes, self.dim, None, None, self.time_embedding_dim,
-                                                           skip_node_features=True)
-        
-        net = MACEAdapted(dim=self.dim,
-                          readout_mlp_irreps=self.readout_mlp_irreps,
-                          hidden_irreps=self.hidden_irreps,
-                          r_max=self.r_max,
-                          num_interactions=self.num_interactions,
-                          num_species=self.num_species,
-                          n_nodes=self.n_nodes,
-                          graph_type=self.graph_type,
-                          avg_num_neighbors=self.avg_num_neighbors,
-                          max_ell=self.max_ell,
-                          )
-                                
-        vectors = net(positions,      # (B, n_nodes, dim) 
-                      node_features,  # (B, n_nodes) 
-                      time_embedding  # (B, time_embedding_dim)
-                      )  # (B, n_nodes, dim)
-        
-        # jax.debug.print("{}", vectors.mean())
-
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)
 
@@ -146,6 +96,8 @@ class FlatMACEDiffusion(nn.Module):
     graph_type: str
     avg_num_neighbors: float
     max_ell: int
+    variance_scaling_init: bool
+    scale_output: bool
 
     @nn.compact
     def __call__(self,
@@ -170,6 +122,8 @@ class FlatMACEDiffusion(nn.Module):
                                    graph_type=self.graph_type,
                                    avg_num_neighbors=self.avg_num_neighbors,
                                    max_ell=self.max_ell,
+                                   variance_scaling_init=self.variance_scaling_init,
+                                   scale_output=self.scale_output,
                                    )
                                 
         vectors = net(positions,      # (B, n_nodes, dim) 
@@ -177,7 +131,7 @@ class FlatMACEDiffusion(nn.Module):
                       time_embedding  # (B, time_embedding_dim)
                       )  # (B, n_nodes, dim)
         
-        # jax.debug.print("{}", vectors.mean())
+        # jax.debug.print("{}, {}", vectors.mean(), vectors.std())
 
         flat_vectors = jnp.reshape(vectors, (vectors.shape[0], self.n_nodes*self.dim))
         return flat_vectors  # (B, n_nodes*dim)
