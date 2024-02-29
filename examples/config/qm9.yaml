@@ -38,7 +38,7 @@ training:
       end_lr: 0.
       n_iter_warmup: 10
   step_size: 0.05
-  use_ema: true
+  use_ema: false
   save: true
 
   batch_size: 256
