@@ -56,20 +56,18 @@ def build_cnf(
 
     get_cond_vector_field = partial(optimal_transport_conditional_vf, sigma_min=sigma_min)
 
-    assert n_features == 1  # we are only generating atom positions, not atom types too
     if model_name == "egnn":
         net = FlatEGNN(n_nodes=n_nodes,
                        dim=dim,
-                       n_features=n_features,
                        n_invariant_feat_hidden=n_invariant_feat_hidden,
                        time_embedding_dim=time_embedding_dim,
                        n_blocks=n_blocks,
-                       mlp_units=mlp_units
+                       mlp_units=mlp_units,
+                       num_species=int(n_features),
         )
     elif model_name == "mace":
         net = FlatMACEDiffusion(n_nodes=n_nodes,
                                 dim=dim,
-                                n_features=n_features,
                                 time_embedding_dim=time_embedding_dim,
                                 hidden_irreps=hidden_irreps,
                                 readout_mlp_irreps=readout_mlp_irreps,
@@ -91,7 +89,7 @@ def build_cnf(
     params = net.init(jax.random.PRNGKey(0), 
                       jnp.zeros((1, n_nodes*dim)), 
                       jnp.zeros((1,)), 
-                      jnp.zeros((1, n_nodes*n_features), dtype=int)
+                      jnp.zeros((1, n_nodes), dtype=int)
             )
     print(sum(x.size for x in jax.tree_leaves(params)))
     print("--------------------------------------------")

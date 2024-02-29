@@ -5,47 +5,64 @@ hydra:
 flow:
   sigma_min: 0.01
   base_scale: 1.
-  network:
-    type: egnn
-    mlp_units: [128, 128, 128]
-    n_blocks: 3
-    n_invariant_feat_hidden: 64
-    time_embedding_dim: 8
 
+  network:
+    time_embedding_dim: 8
+    egnn:
+      n_invariant_feat_hidden: 64
+      n_blocks: 3
+      mlp_units: [128, 128, 128]
+    mace:
+      hidden_irreps: 8x0e + 8x1o
+      readout_mlp_irreps: 4x0e + 4x1o
+      num_interactions: 2
+      graph_type: fc  # fc / nbh / mace
+      avg_num_neighbors: null  # null / average
+      max_ell: 3
+      variance_scaling: 0.001
+      correlation: 3
+      zero_com: true
+      scale_output: true 
+
+task: lj13
 
 training:
-  use_ema: false
+  use_fixed_step_size: false
+  step_size_control:
+    rtol: 1e-3
+    atol: 1e-6
   optimizer:
       use_schedule: true
       init_lr: 1e-4
       peak_lr: 1e-4
       end_lr: 0.
       n_iter_warmup: 10
+  step_size: 0.05
+  use_ema: false
+  save: true
+
   batch_size: 64
   seed: 0
   n_training_iter: 400
-
   plot_batch_size: 64
   eval_batch_size: 64
   train_set_size: 1000
   test_set_size: 1000
-  eval_n_model_samples: 10_000
+  eval_n_model_samples: null
   eval_exact_log_prob: true
-  use_fixed_step_size: false
   final_run: true
   n_checkpoints: 5
   n_eval: 5
-  save: true
   save_dir: ''
   save_in_wandb_dir: true
 
 
 logger:
-#  list_logger: null
-#  pandas_logger:
-#    save_period: 1000 # how often to save the pandas dataframe as a csv
-  wandb:
-    name: lj13_fm
-    project: fab
-    entity: flow-ais-bootstrap
-    tags: [lj13,flow_matching,final2,final3]
+ list_logger: null
+ pandas_logger:
+   save_period: 1000 # how often to save the pandas dataframe as a csv
+  # wandb:
+  #   name: lj13_fm
+  #   project: ecnf
+  #   entity: kalyan0821
+  #   tags: [lj13,flow_matching,final2,final3]

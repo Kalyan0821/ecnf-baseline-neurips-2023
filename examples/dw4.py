@@ -11,10 +11,6 @@ from ecnf.targets.data import load_dw4, FullGraphSample
 from ecnf.targets.target_energy.double_well import log_prob_fn
 from ecnf.setup_training import setup_training
 
-"""
-To run: 
-CUDA_VISIBLE_DEVICES=0 python examples/dw4.py +model_name=egnn
-"""
 
 def load_dataset(train_set_size: int, valid_set_size: Optional[int], final_run: bool) -> Tuple[FullGraphSample, FullGraphSample]:
     train, valid, test = load_dw4(train_set_size)
@@ -22,6 +18,7 @@ def load_dataset(train_set_size: int, valid_set_size: Optional[int], final_run: 
         return train, valid[:valid_set_size]
     else:
         return train, test[:valid_set_size]
+
 
 @hydra.main(config_path="./config", config_name="dw4.yaml")
 def run(cfg: DictConfig):
@@ -35,12 +32,11 @@ def run(cfg: DictConfig):
         cfg.training.train_set_size = 80
         cfg.training.test_set_size = 80
 
-        cfg.flow.network.mlp_units = (16,)
-        cfg.flow.network.n_invariant_feat_hidden = 8
+        cfg.flow.network.egnn.mlp_units = (16,)
+        cfg.flow.network.egnn.n_invariant_feat_hidden = 8
         cfg.flow.network.time_embedding_dim = 6
         cfg.training.n_training_iter = 10
         cfg.flow.network.egnn.n_blocks = 2
-        cfg.flow.base_scale = 2.
 
     train_config = setup_training(
         cfg,

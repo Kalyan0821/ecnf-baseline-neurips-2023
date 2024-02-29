@@ -4,7 +4,8 @@ from functools import partial
 
 import hydra
 from omegaconf import DictConfig
-
+import sys
+sys.path.append("./")
 from ecnf.utils.loop import run_training
 from ecnf.targets.data import load_aldp, FullGraphSample
 from ecnf.setup_training import setup_training
@@ -30,14 +31,15 @@ def run(cfg: DictConfig):
         cfg.training.save = False
         cfg.training.batch_size = 2
         cfg.training.eval_batch_size = 2
-        cfg.training.n_training_iter = 10
+        cfg.training.plot_batch_size = 16
         cfg.training.train_set_size = 8
         cfg.training.test_set_size = 8
-        cfg.training.plot_batch_size = 16
-        cfg.flow.network.mlp_units = (4,)
-        cfg.flow.network.egnn.n_blocks = 1
-        cfg.flow.network.n_invariant_feat_hidden = 8
+
+        cfg.flow.network.egnn.mlp_units = (4,)
+        cfg.flow.network.egnn.n_invariant_feat_hidden = 8
         cfg.flow.network.time_embedding_dim = 6
+        cfg.training.n_training_iter = 10
+        cfg.flow.network.egnn.n_blocks = 1
 
     train_config = setup_training(
         cfg,

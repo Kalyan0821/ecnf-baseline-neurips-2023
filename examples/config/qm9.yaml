@@ -28,6 +28,9 @@ task: qm9
 
 training:
   use_fixed_step_size: false
+  step_size_control:
+    rtol: 1e-3
+    atol: 1e-6
   optimizer:
       use_schedule: true
       init_lr: 1e-4

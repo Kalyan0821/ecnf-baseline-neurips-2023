@@ -10,22 +10,42 @@ target:
 flow:
   sigma_min: 0.000001
   base_scale: 0.2
-  network:
-    type: egnn
-    mlp_units: [64, 64] #  [256, 256, 256, 256]
-    n_blocks: 3 # 5
-    n_invariant_feat_hidden: 32
-    time_embedding_dim: 8
 
+  network:
+    time_embedding_dim: 8
+    egnn:
+      n_invariant_feat_hidden: 32
+      n_blocks: 3 # 5
+      mlp_units: [64, 64] #  [256, 256, 256, 256]
+    mace:
+      hidden_irreps: 8x0e + 8x1o
+      readout_mlp_irreps: 4x0e + 4x1o
+      num_interactions: 2
+      graph_type: fc  # fc / nbh / mace
+      avg_num_neighbors: null  # null / average
+      max_ell: 3
+      variance_scaling: 0.001
+      correlation: 3
+      zero_com: true
+      scale_output: true
+
+task: aldp
 
 training:
-  use_ema: true
+  use_fixed_step_size: false
+  step_size_control:
+    rtol: 1e-3
+    atol: 1e-6
   optimizer:
       use_schedule: true
       init_lr: 1e-4
       peak_lr: 1e-4
       end_lr: 0.
       n_iter_warmup: 10
+  step_size: 0.05
+  use_ema: true
+  save: true
+
   batch_size: 256
   seed: 0
   n_training_iter: 10
@@ -35,21 +55,19 @@ training:
   test_set_size: null
   eval_n_model_samples: null # Unused as there is no energy function.
   eval_exact_log_prob: false
-  use_fixed_step_size: false
   final_run: true
   n_checkpoints: 5
   n_eval: 10
-  save: true
   save_dir: ''
   save_in_wandb_dir: true
 
 
 logger:
-#  list_logger: null
-#  pandas_logger:
-#    save_period: 1000 # how often to save the pandas dataframe as a csv
-  wandb:
-    name: aldp_fm
-    project: fab
-    entity: flow-ais-bootstrap
-    tags: [qm9,flow_matching]
+ list_logger: null
+ pandas_logger:
+   save_period: 1000 # how often to save the pandas dataframe as a csv
+  # wandb:
+  #   name: aldp_fm
+  #   project: ecnf
+  #   entity: kalyan0821
+  #   tags: [qm9,flow_matching]
