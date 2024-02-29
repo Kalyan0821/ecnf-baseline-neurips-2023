@@ -11,8 +11,8 @@ from ecnf.utils.test import assert_function_is_rotation_equivariant, assert_func
 if __name__ == '__main__':
     n_nodes = 5
     dim = 3
-    readout_mlp_irreps = "16x0e + 16x1o"
-    hidden_irreps = "256x0e + 256x1o"
+    hidden_irreps = "43x0e + 56x1o"
+    readout_mlp_irreps = "12x0e + 33x1o"
     r_max = 5.0
     num_interactions = 2
     num_species = 1

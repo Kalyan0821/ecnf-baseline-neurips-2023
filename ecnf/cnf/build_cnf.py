@@ -32,6 +32,8 @@ def build_cnf(
         avg_num_neighbors: str,  
         max_ell: int,
         variance_scaling_init: float,
+        correlation: int,
+        zero_com: bool,
         scale_output: bool,
 ):
 
@@ -69,14 +71,16 @@ def build_cnf(
                                 dim=dim,
                                 n_features=n_features,
                                 time_embedding_dim=time_embedding_dim,
-                                readout_mlp_irreps=readout_mlp_irreps,
                                 hidden_irreps=hidden_irreps,
+                                readout_mlp_irreps=readout_mlp_irreps,
                                 num_interactions=num_interactions,
                                 num_species=int(n_features),
                                 graph_type=graph_type,
                                 avg_num_neighbors=avg_num_neighbors,
                                 max_ell=max_ell,
                                 variance_scaling_init=variance_scaling_init,
+                                correlation=correlation,
+                                zero_com=zero_com,
                                 scale_output=scale_output,
         )
     else:

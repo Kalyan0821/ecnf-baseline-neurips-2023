@@ -11,13 +11,18 @@ from ecnf.utils.test import assert_function_is_rotation_equivariant, assert_func
 if __name__ == '__main__':
     n_nodes = 5
     dim = 3
-    readout_mlp_irreps = "16x0e + 16x1o"
-    hidden_irreps = "4x0e + 4x1o"
+    hidden_irreps = "43x0e + 56x1o"
+    readout_mlp_irreps = "12x0e + 33x1o"
     num_interactions = 2
     num_species = 3
     graph_type = "fc"
     avg_num_neighbors = None
     max_ell = 3
+
+    variance_scaling_init = 0.001
+    correlation = 3
+    zero_com = True
+
 
     net = MACEDiffusionAdapted(dim=dim,
                                MLP_irreps=readout_mlp_irreps,
@@ -28,12 +33,16 @@ if __name__ == '__main__':
                                graph_type=graph_type,
                                avg_num_neighbors=avg_num_neighbors,
                                max_ell=max_ell,
+
+                               variance_scaling_init=variance_scaling_init,
+                               correlation=correlation,
+                               zero_com=zero_com,
                                )
 
     key = jax.random.PRNGKey(0)
-    dummy_pos = jax.random.normal(key, (n_nodes, dim))
+    dummy_pos = jax.random.normal(key, (n_nodes, dim)) * 10
     dummy_feat = jnp.ones((n_nodes,), dtype=jnp.int32)
-    dummy_time_embed = jax.random.normal(key, (11,))
+    dummy_time_embed = jax.random.normal(key, (11,)) * 10
 
     params = net.init(key, dummy_pos, dummy_feat, dummy_time_embed)
 

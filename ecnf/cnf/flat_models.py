@@ -97,6 +97,8 @@ class FlatMACEDiffusion(nn.Module):
     avg_num_neighbors: float
     max_ell: int
     variance_scaling_init: bool
+    correlation: int
+    zero_com: bool
     scale_output: bool
 
     @nn.compact
@@ -123,6 +125,8 @@ class FlatMACEDiffusion(nn.Module):
                                    avg_num_neighbors=self.avg_num_neighbors,
                                    max_ell=self.max_ell,
                                    variance_scaling_init=self.variance_scaling_init,
+                                   correlation=self.correlation,
+                                   zero_com=self.zero_com,
                                    scale_output=self.scale_output,
                                    )
                                 

@@ -32,9 +32,11 @@ class MACEDiffusionAdapted(nn.Module):
     r_max: float = None  # currently not used
 
     variance_scaling_init: float = 0.001
-    scale_output: bool = False
-    normalization_factor: int = 1
     correlation: int = 3
+    zero_com: bool = True
+    scale_output: bool = False
+
+    normalization_factor: int = 1
     train_graphs: List[jraph.GraphsTuple] = None  # TODO: get this
 
     def setup(self):
@@ -107,8 +109,8 @@ class MACEDiffusionAdapted(nn.Module):
 
         _, edge_index = get_graph_inputs(self.graph_type, positions, self.n_nodes, self.r_max, stack=True)  # _, (senders, receivers)
         shifts = 0
-        # Copying EGNN
-        positions -= positions.mean(axis=0, keepdims=True)  # (n_nodes, dim)
+        if self.zero_com:  # copying EGNN
+            positions -= positions.mean(axis=0, keepdims=True)  # (n_nodes, dim)
 
         # get edge vectors
         vectors, lengths = get_edge_vectors_and_lengths(
@@ -160,8 +162,8 @@ class MACEDiffusionAdapted(nn.Module):
         # Output
         predicted_noise_positions = (positions - positions_0)[:, :self.dim]
 
-        # Copying EGNN
-        predicted_noise_positions -= predicted_noise_positions.mean(axis=0, keepdims=True)
+        if self.zero_com:  # copying EGNN
+            predicted_noise_positions -= predicted_noise_positions.mean(axis=0, keepdims=True)
 
         predicted_noise_positions *= self.final_scaling
 
@@ -212,6 +214,9 @@ class MACE_layer(nn.Module):
 
 
     def __call__(self, vectors, lengths, node_feats, node_attrs, edge_feats, edge_index):
+        if not hasattr(node_feats, "irreps"):
+            node_feats = e3nn.IrrepsArray(self.node_feats_irreps, node_feats)
+
         vectors_sh = e3nn.spherical_harmonics(input=vectors,
                                               irreps_out=self.sh_irreps,
                                               normalize=True,

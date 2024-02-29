@@ -106,7 +106,7 @@ class EquivariantProductBasisBlock(flax.linen.Module):
     correlation: Union[int, Dict[str, int]]
     num_species: Optional[int] = None
 
-    use_library_contraction: bool = False
+    use_library_contraction: bool = True
 
     def setup(self):
         target_irreps = e3nn.Irreps(self.target_irreps)
@@ -152,7 +152,6 @@ class NonLinearReadoutBlock(flax.linen.Module):
     activation: Callable
     num_species: int
     positions_only: bool = False
-    gate: Optional[Callable] = None
 
     def setup(self):
         irreps_in = e3nn.Irreps(self.irreps_in)
@@ -189,7 +188,6 @@ class NonLinearReadoutBlock(flax.linen.Module):
         x = self.linear_1(x)
         x = e3nn.gate(input=x,
                       even_act=self.activation,
-                      even_gate_act=self.gate,
                     )
         x = self.linear_2(x)
         return x

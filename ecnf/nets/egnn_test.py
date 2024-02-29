@@ -20,9 +20,9 @@ if __name__ == '__main__':
     )
 
     key = jax.random.PRNGKey(0)
-    dummy_pos = jax.random.normal(key, (n_nodes, dim))
+    dummy_pos = jax.random.normal(key, (n_nodes, dim)) * 10
     dummy_feat = jnp.ones((n_nodes, 1), dtype=jnp.int32)
-    dummy_time_embed = jax.random.normal(key, (11,))
+    dummy_time_embed = jax.random.normal(key, (11,)) * 10
 
     params = egnn.init(key, dummy_pos, dummy_feat, dummy_time_embed)
 
