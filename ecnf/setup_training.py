@@ -181,7 +181,7 @@ def setup_training(
             def forward(carry: None, xs: chex.PRNGKey):
                 key = xs
                 samples, log_q = sample_and_log_prob_cnf(cnf, state.params, key, features=train_features_flat[0],
-                                                        approx=cfg.training.eval_exact_log_prob,
+                                                        approx=not cfg.training.eval_exact_log_prob,
                                                         use_fixed_step_size=cfg.training.use_fixed_step_size,
                                                         rtol=cfg.training.step_size_control.rtol, atol=cfg.training.step_size_control.atol, step_size=cfg.training.step_size
                                                         )

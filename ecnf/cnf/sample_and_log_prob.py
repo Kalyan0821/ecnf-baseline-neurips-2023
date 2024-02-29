@@ -141,7 +141,7 @@ def sample_and_log_prob_cnf(
     x0, log_prob_base = cnf.sample_and_log_prob_base(seed=key, sample_shape=())
 
     if use_fixed_step_size:
-        solution = diffeqsolve(term, solver, t0=0, t1=1, dt0=step_size, y0=x0)
+        solution = diffeqsolve(term, solver, t0=0, t1=1, dt0=step_size, y0=(x0, jnp.zeros(())))
     else:
         solution = diffeqsolve(term, solver, t0=0., t1=1., y0=(x0, jnp.zeros(())),
                                stepsize_controller=PIDController(rtol=rtol, atol=atol, 
