@@ -1,5 +1,6 @@
 # NLL = 8.27 (510407 params)
 CUDA_VISIBLE_DEVICES=0 python examples/dw4.py +model_name=egnn
+
 # NLL = 8.31 (3625 params)
 CUDA_VISIBLE_DEVICES=1 python examples/dw4.py +model_name=mace \
                               training.use_fixed_step_size=true \
@@ -14,6 +15,7 @@ CUDA_VISIBLE_DEVICES=1 python examples/dw4.py +model_name=mace \
 
 # NLL = 30.5 (510407 params)
 CUDA_VISIBLE_DEVICES=0 python examples/lj13.py +model_name=egnn
+
 # NLL = 30.3 (3625 params)
 CUDA_VISIBLE_DEVICES=1 python examples/lj13.py +model_name=mace \
                               training.use_fixed_step_size=true \
@@ -39,12 +41,18 @@ CUDA_VISIBLE_DEVICES=0 python examples/aldp.py +model_name=egnn \
                               training.optimizer.init_lr=1e-2
 
 
-# NLL = -51.3 / -20.1 ??  (13537 params)  --> train + eval: 4x slower than egnn
+# NLL = -51.3 / -20.1 ??  (13537 params)  --> train + eval: 3x slower than egnn
 CUDA_VISIBLE_DEVICES=1 python examples/aldp.py +model_name=mace \
                               training.use_fixed_step_size=true \
                               training.optimizer.use_schedule=false \
                               training.optimizer.init_lr=5e-3
-# NLL = -68.03 / -20.1 ??
+# NLL = -60.22 / -20.2 ??  --> 2x slower
+CUDA_VISIBLE_DEVICES=1 python examples/aldp.py +model_name=mace \
+                              flow.network.mace.correlation=2 \
+                              training.use_fixed_step_size=true \
+                              training.optimizer.use_schedule=false \
+                              training.optimizer.init_lr=5e-3
+# NLL = -68.03 / -20.1 ??  --> very slow
 CUDA_VISIBLE_DEVICES=1 python examples/aldp.py +model_name=mace \
                               training.optimizer.use_schedule=false \
                               training.optimizer.init_lr=1e-2
