@@ -13,27 +13,33 @@ flow:
       n_blocks: 3
       mlp_units: [128, 128, 128]
     mace:
-      readout_mlp_irreps: 16x0e + 16x1o
-      hidden_irreps: 256x0e + 256x1o
+      hidden_irreps: 8x0e + 8x1o
+      readout_mlp_irreps: 4x0e + 4x1o
       num_interactions: 2
       graph_type: fc  # fc / nbh / mace
       avg_num_neighbors: null  # null / average
-      max_ell: 5
+      max_ell: 3
       variance_scaling: 0.001
+      correlation: 3
+      zero_com: true
       scale_output: true
 
 task: dw4
 
 training:
-  use_ema: false
+  use_fixed_step_size: false
+  step_size_control:
+    rtol: 1e-3
+    atol: 1e-6
   optimizer:
       use_schedule: true  # mace default = false
       init_lr: 1e-4       # mace default = 0.01
       peak_lr: 1e-4
       end_lr: 0.
       n_iter_warmup: 10
-  use_fixed_step_size: false
-  save: false
+  step_size: 0.05  # only used if use_fixed_step_size is true
+  use_ema: false
+  save: true
 
   batch_size: 64
   seed: 0

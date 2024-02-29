@@ -30,6 +30,7 @@ Plotter = Callable[[TrainingState, FullGraphSample, chex.PRNGKey], Sequence[plt.
 
 
 def setup_default_plotter(
+        cfg: DictConfig,
         cnf: FlowMatchingCNF,
         n_nodes: int,
         dim: int,
@@ -44,8 +45,9 @@ def setup_default_plotter(
 
         key, subkey = jax.random.split(key)
         key_batch = jax.random.split(key, n_samples_plotting)
-        flow_samples_flat = jax.vmap(sample_cnf, in_axes=(None, None, 0, 0))(
-            cnf, state.params, key_batch, jnp.repeat(features_flat[None], n_samples_plotting, axis=0))
+        flow_samples_flat = jax.vmap(sample_cnf, in_axes=(None, None, 0, 0, None, None, None, None))(
+            cnf, state.params, key_batch, jnp.repeat(features_flat[None], n_samples_plotting, axis=0), 
+            cfg.training.use_fixed_step_size, cfg.training.step_size_control.rtol, cfg.training.step_size_control.atol, cfg.training.step_size)
         flow_samples = jnp.reshape(flow_samples_flat, (n_samples_plotting, n_nodes, dim))
 
         # Plot samples.
@@ -129,13 +131,15 @@ def setup_training(
                     n_blocks=cfg.flow.network.egnn.n_blocks,
                     mlp_units=cfg.flow.network.egnn.mlp_units,
                     # mace specific
-                    readout_mlp_irreps=cfg.flow.network.mace.readout_mlp_irreps,
                     hidden_irreps=cfg.flow.network.mace.hidden_irreps,
+                    readout_mlp_irreps=cfg.flow.network.mace.readout_mlp_irreps,
                     num_interactions=cfg.flow.network.mace.num_interactions,
                     graph_type=cfg.flow.network.mace.graph_type,
                     avg_num_neighbors=cfg.flow.network.mace.avg_num_neighbors,
                     max_ell=cfg.flow.network.mace.max_ell,
                     variance_scaling_init=cfg.flow.network.mace.variance_scaling,
+                    correlation=cfg.flow.network.mace.correlation,
+                    zero_com=cfg.flow.network.mace.zero_com,
                     scale_output=cfg.flow.network.mace.scale_output,
                     )
     
@@ -178,8 +182,9 @@ def setup_training(
                 key = xs
                 samples, log_q = sample_and_log_prob_cnf(cnf, state.params, key, features=train_features_flat[0],
                                                         approx=cfg.training.eval_exact_log_prob,
-                                                        use_fixed_step_size=cfg.training.use_fixed_step_size
-                                                         )
+                                                        use_fixed_step_size=cfg.training.use_fixed_step_size,
+                                                        rtol=cfg.training.step_size_control.rtol, atol=cfg.training.step_size_control.atol, step_size=cfg.training.step_size
+                                                        )
                 samples = jnp.reshape(samples, (-1, n_nodes, dim))
                 log_p = target_log_prob_fn(samples)
                 log_w = log_p - log_q
@@ -203,13 +208,15 @@ def setup_training(
         key_batch = jax.random.split(key1, test_pos_flat.shape[0])
 
         if cfg.training.eval_exact_log_prob:
-            log_q, log_prob_base, delta_log_lik = jax.vmap(get_log_prob, in_axes=(None, None, 0, 0, 0, None))(
-                cnf, state.params, test_pos_flat, key_batch, test_features_flat,
-                cfg.training.use_fixed_step_size
+            log_q, log_prob_base, delta_log_lik = jax.vmap(get_log_prob, in_axes=(None, None, 0, 0, 0, None, None, None, None, None))(
+                cnf, state.params, test_pos_flat, key_batch, test_features_flat, False,
+                cfg.training.use_fixed_step_size, cfg.training.step_size_control.rtol, cfg.training.step_size_control.atol, cfg.training.step_size
             )
         else:
-            log_q, log_prob_base, delta_log_lik = jax.vmap(get_log_prob, in_axes=(None, None, 0, 0, 0, None, None))(
-                cnf, state.params, test_pos_flat, key_batch, test_features_flat, True, cfg.training.use_fixed_step_size)
+            log_q, log_prob_base, delta_log_lik = jax.vmap(get_log_prob, in_axes=(None, None, 0, 0, 0, None, None, None, None, None))(
+                cnf, state.params, test_pos_flat, key_batch, test_features_flat, True, 
+                cfg.training.use_fixed_step_size, cfg.training.step_size_control.rtol, cfg.training.step_size_control.atol, cfg.training.step_size
+            )
 
         info = {}
         info.update(
@@ -228,7 +235,8 @@ def setup_training(
 
 
     if plotter is None:
-        plotter = setup_default_plotter(cnf=cnf, n_nodes=n_nodes, dim=dim, n_samples_plotting=n_samples_plotting)
+        plotter = setup_default_plotter(cfg=cfg, 
+                                        cnf=cnf, n_nodes=n_nodes, dim=dim, n_samples_plotting=n_samples_plotting)
 
 
     def eval_and_plot(
